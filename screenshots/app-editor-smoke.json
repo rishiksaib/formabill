@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/app",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "FormaBill",
+      "hasCanvas": false,
+      "bodyTextLen": 551,
+      "bodyTextHash": "688fbb553cc065266c18e9b8a5a86aac016f17efcf1be392c9d2fbaa41d46b90",
+      "bodyTextPrefix": "FormaBill New invoice Invoices Clients Settings EDITOR FB-0001 D",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-editor-smoke.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "FormaBill",
+      "hasCanvas": false,
+      "bodyTextLen": 500,
+      "bodyTextHash": "21864994eecbadc8d9cf828cdd8fd60cbc34ac9fb315f3da1eb7f40982fff606",
+      "bodyTextPrefix": "FormaBill EDITOR FB-0001 Draft Invoice number Due date From Stud",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-editor-smoke-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-editor-smoke.json"
+}

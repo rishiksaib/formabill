@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "FormaBill",
+      "hasCanvas": false,
+      "bodyTextLen": 1440,
+      "bodyTextHash": "4030fff3969d4fa40c89285a80194a71784c33049f802e620e68340717f5b1de",
+      "bodyTextPrefix": "FormaBill Invoices Start invoicing FOR INDEPENDENT DESIGNERS Pub",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "FormaBill",
+      "hasCanvas": false,
+      "bodyTextLen": 1431,
+      "bodyTextHash": "4ee0b45da97ab2d678ab3a7ae54975ed90b0fa7c922d660448bda6f5cdb8e70f",
+      "bodyTextPrefix": "FormaBill Start invoicing FOR INDEPENDENT DESIGNERS Publication-",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
