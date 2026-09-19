@@ -48,14 +48,22 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
   const { ready, settings, invoices, clients, saveInvoice, publishInvoice, updateInvoiceStatus } = useStore();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [busy, setBusy] = useState<"save" | "link" | "pay" | "pdf" | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [autoSaveError, setAutoSaveError] = useState<string | null>(null);
   const saveTimer = useRef<number | null>(null);
   const session = useRef<string | null>(null);
   const dirty = useRef(false);
 
   useEffect(() => {
     if (!ready) return;
+    const key = invoiceId ?? "new";
+    // Init once per editor session so later settings/invoice-list updates
+    // never wipe in-progress edits. New drafts still prefill From +
+    // payment methods + currency + tax from current Settings.
+    if (session.current === key) return;
     if (invoiceId) {
-      if (session.current === invoiceId) return;
       const found = invoices.find((i) => i.id === invoiceId);
       if (found) {
         setInvoice(found);
@@ -63,17 +71,6 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
         dirty.current = false;
         return;
       }
-      const draft = applySettingsToInvoice(
-        createDraftInvoice(
-          settings,
-          invoices.map((i) => i.number),
-        ),
-        settings,
-      );
-      setInvoice(draft);
-      session.current = "new";
-      dirty.current = false;
-      return;
     }
     const draft = applySettingsToInvoice(
       createDraftInvoice(
@@ -85,19 +82,30 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
     setInvoice(draft);
     session.current = "new";
     dirty.current = false;
-  }, [ready, invoiceId, invoices, settings, saveInvoice]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, invoiceId]);
 
 
   useEffect(() => {
     if (!invoice || !dirty.current) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
-      void saveInvoice(invoice).then((saved) => {
-        if (!invoiceId) {
-          session.current = saved.id;
-          void navigate({ to: "/app", search: { id: saved.id }, replace: true });
-        }
-      });
+      setIsSaving(true);
+      void saveInvoice(invoice).then(
+        (saved) => {
+          setIsSaving(false);
+          setAutoSaveError(null);
+          setLastSavedAt(new Date().toISOString());
+          if (!invoiceId) {
+            session.current = saved.id;
+            void navigate({ to: "/app", search: { id: saved.id }, replace: true });
+          }
+        },
+        (error) => {
+          setIsSaving(false);
+          setAutoSaveError(error instanceof Error ? error.message : "Auto-save failed");
+        },
+      );
     }, 700);
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
@@ -125,10 +133,13 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
     const stamped: Invoice = {
       ...invoice,
       currency: invoice.currency || settings.defaultCurrency || "USD",
-      paymentMethods: invoice.paymentMethods,
+      taxRate: invoice.taxRate ?? settings.defaultTaxRate ?? 0,
+      paymentMethods: invoice.paymentMethods ?? settings.paymentMethods,
     };
     setInvoice(stamped);
-    return saveInvoice(stamped);
+    const saved = await saveInvoice(stamped);
+    setLastSavedAt(new Date().toISOString());
+    return saved;
   };
 
   const onSave = async () => {
@@ -136,11 +147,14 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
     try {
       const saved = await persistNow();
       await publishInvoice(saved);
+      setPublishError(null);
       toast.success("Invoice saved and published");
       session.current = saved.id;
       await navigate({ to: "/app", search: { id: saved.id }, replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Save failed");
+      const message = err instanceof Error ? err.message : "Save failed";
+      setPublishError(message);
+      toast.error(message);
     } finally {
       setBusy(null);
     }
@@ -156,12 +170,15 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
         status: saved.status === "paid" ? "paid" : "sent",
       });
       setInvoice(published);
+      setPublishError(null);
       session.current = published.id;
       await navigator.clipboard.writeText(publicUrl(published.id));
       toast.success("Public link copied");
       await navigate({ to: "/app", search: { id: published.id }, replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not copy link");
+      const message = err instanceof Error ? err.message : "Could not copy link";
+      setPublishError(`Copy link failed: ${message}`);
+      toast.error(message);
     } finally {
       setBusy(null);
     }
@@ -177,11 +194,14 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
         status: saved.status === "paid" ? "paid" : "sent",
       });
       setInvoice(published);
+      setPublishError(null);
       session.current = published.id;
       window.open(whatsappShareUrl(published), "_blank", "noopener,noreferrer");
       toast.success("WhatsApp share ready");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not share invoice");
+      const message = err instanceof Error ? err.message : "Could not share invoice";
+      setPublishError(`WhatsApp share failed: ${message}`);
+      toast.error(message);
     } finally {
       setBusy(null);
     }
@@ -197,10 +217,13 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
         status: saved.status === "paid" ? "paid" : "sent",
       });
       setInvoice(published);
+      setPublishError(null);
       session.current = published.id;
       window.location.href = emailShareUrl(published);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not share invoice");
+      const message = err instanceof Error ? err.message : "Could not share invoice";
+      setPublishError(`Email share failed: ${message}`);
+      toast.error(message);
     } finally {
       setBusy(null);
     }
@@ -247,16 +270,19 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
       if (!res.ok) throw new Error(json.error || "Checkout failed");
       if (json.invoice) setInvoice(json.invoice);
       session.current = published.id;
+      setPublishError(null);
       await navigate({ to: "/app", search: { id: published.id }, replace: true });
       if (json.demo) {
         toast.message("Razorpay is not connected", {
-          description: "Add UPI or bank details, or connect Razorpay in Settings.",
+          description: "Add UPI in Settings or connect Razorpay",
         });
         return;
       }
       if (json.short_url) window.open(json.short_url, "_blank", "noopener,noreferrer");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Payment link failed");
+      const message = err instanceof Error ? err.message : "Payment link failed";
+      setPublishError(`Get paid failed: ${message}`);
+      toast.error(message);
     } finally {
       setBusy(null);
     }
@@ -274,6 +300,17 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
     }
   };
 
+  const effectiveCurrency = invoice.currency || settings.defaultCurrency || "USD";
+  const saveStateLabel = isSaving
+    ? "Saving…"
+    : autoSaveError
+      ? `Save failed — ${autoSaveError}. Will retry on next edit.`
+      : dirty.current
+        ? "Unsaved changes…"
+        : lastSavedAt
+          ? `Saved ${new Date(lastSavedAt).toLocaleTimeString()}`
+          : "Auto-save on";
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       <section className="rounded-xl border border-border bg-card p-5 shadow-paper sm:p-6">
@@ -281,6 +318,9 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
           <div>
             <p className="text-xs tracking-[0.16em] text-muted-foreground uppercase">Editor</p>
             <h1 className="font-display text-2xl tracking-tight">{invoice.number}</h1>
+            <p className="mt-1 text-xs text-muted-foreground" role="status">
+              {saveStateLabel}
+            </p>
           </div>
           <Badge variant={invoice.status}>{invoice.status}</Badge>
         </div>
@@ -364,7 +404,8 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
             <div key={item.id} className="grid grid-cols-12 gap-2">
               <Input
                 className="col-span-12 sm:col-span-6"
-                placeholder="Brand identity, research, UI kit…"
+                placeholder="Description"
+                aria-label="Line item description"
                 value={item.description}
                 onChange={(e) => {
                   const lineItems = [...invoice.lineItems];
@@ -418,6 +459,22 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <Field label="Currency">
+            <select
+              className="flex h-11 w-full rounded-md border border-input bg-card px-3 text-sm"
+              value={effectiveCurrency}
+              onChange={(e) => patch({ currency: e.target.value })}
+            >
+              <option value="USD">USD — US Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — Pound Sterling</option>
+              <option value="INR">INR — Indian Rupee</option>
+              <option value="AUD">AUD — Australian Dollar</option>
+              <option value="CAD">CAD — Canadian Dollar</option>
+              <option value="SGD">SGD — Singapore Dollar</option>
+            </select>
+            <span className="text-xs text-muted-foreground">All amounts use this currency.</span>
+          </Field>
           <Field label="Tax rate (%)">
             <Input
               type="number"
@@ -426,11 +483,12 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
               value={invoice.taxRate}
               onChange={(e) => patch({ taxRate: Number(e.target.value) })}
             />
+            <span className="text-xs text-muted-foreground">Hidden on preview when 0%.</span>
           </Field>
-          <div className="flex items-end justify-between rounded-md border border-border bg-secondary/50 px-3 py-2">
+          <div className="flex items-end justify-between rounded-md border border-border bg-secondary/50 px-3 py-2 sm:col-span-2">
             <span className="text-xs text-muted-foreground">Total</span>
             <span className="font-medium tabular-nums">
-              {formatMoney(total, invoice.currency || "USD")}
+              {formatMoney(total, effectiveCurrency)}
             </span>
           </div>
         </div>
@@ -456,6 +514,7 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
                 onChange={(e) => patch({ paymentMethods: { ...(invoice.paymentMethods || {}), upiId: e.target.value } })}
                 placeholder="yourname@upi"
               />
+              <p className="text-xs text-muted-foreground">Only shown on public page for INR invoices</p>
             </Field>
             <Field label="PayPal.me link or email">
               <Input
@@ -502,7 +561,7 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
               <p className="text-xs text-muted-foreground">
                 {settings.isPro
                   ? "Generate the next invoice automatically."
-                  : "Pro feature — enable Pro in Settings."}
+                  : "Pro feature — Get Pro in Settings."}
               </p>
             </div>
             <Switch
@@ -573,15 +632,33 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
             {busy === "save" ? <Loader2 className="animate-spin" /> : null}
             Save
           </Button>
-          <Button className="w-full sm:w-auto" variant="outline" onClick={() => void onCopyLink()} disabled={busy !== null}>
+          <Button
+            className="w-full sm:w-auto"
+            variant="outline"
+            onClick={() => void onCopyLink()}
+            disabled={busy !== null}
+            title="Save, publish, then copy the public link"
+          >
             {busy === "link" ? <Loader2 className="animate-spin" /> : <Copy />}
             Copy link
           </Button>
-          <Button className="w-full sm:w-auto" variant="outline" onClick={() => void onShareWhatsApp()} disabled={busy !== null}>
+          <Button
+            className="w-full sm:w-auto"
+            variant="outline"
+            onClick={() => void onShareWhatsApp()}
+            disabled={busy !== null}
+            title="Save, publish, then open WhatsApp share"
+          >
             {busy === "link" ? <Loader2 className="animate-spin" /> : null}
             WhatsApp
           </Button>
-          <Button className="w-full sm:w-auto" variant="outline" onClick={() => void onShareEmail()} disabled={busy !== null}>
+          <Button
+            className="w-full sm:w-auto"
+            variant="outline"
+            onClick={() => void onShareEmail()}
+            disabled={busy !== null}
+            title="Save, publish, then open email share"
+          >
             {busy === "link" ? <Loader2 className="animate-spin" /> : null}
             Email
           </Button>
@@ -594,17 +671,31 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
             Get paid
           </Button>
         </div>
+        {publishError ? (
+          <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+            {publishError}
+          </p>
+        ) : null}
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" onClick={() => void setStatus("draft")}>
-            Mark as Draft
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => void setStatus("sent")}>
-            Mark as Sent
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => void setStatus("paid")}>
-            Mark as Paid
-          </Button>
+        <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Invoice status">
+          {(
+            [
+              { value: "draft", label: "Draft" },
+              { value: "sent", label: "Sent" },
+              { value: "paid", label: "Paid" },
+            ] as const
+          ).map((s) => (
+            <Button
+              key={s.value}
+              variant={invoice.status === s.value ? "default" : "secondary"}
+              size="sm"
+              aria-pressed={invoice.status === s.value}
+              onClick={() => void setStatus(s.value)}
+            >
+              {s.label}
+              {invoice.status === s.value ? " •" : ""}
+            </Button>
+          ))}
         </div>
         <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Link2 className="size-3.5" /> Auto-saves locally. Save / copy link / get paid publishes a public page.
@@ -618,7 +709,11 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
         <p className="mb-3 hidden text-xs tracking-[0.16em] text-muted-foreground uppercase lg:block">
           Live preview
         </p>
-        <InvoiceDocument invoice={invoice} branded={branded} className="rounded-xl" />
+        <InvoiceDocument
+          invoice={{ ...invoice, currency: effectiveCurrency }}
+          branded={branded}
+          className="rounded-xl"
+        />
       </aside>
     </div>
   );

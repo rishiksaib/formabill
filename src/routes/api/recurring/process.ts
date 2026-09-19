@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createDraftInvoice } from "@/lib/invoice-defaults";
 import { listInvoices, upsertInvoice } from "@/lib/server-store.server";
-import { requireRequestUserId } from "@/lib/request-auth.server";
+import { requireFreeTierRequestUserId } from "@/lib/request-auth.server";
 import type { Invoice } from "@/lib/types";
 import { addFrequency, isoDate, nextInvoiceNumber } from "@/lib/utils";
 
@@ -9,7 +9,7 @@ export const Route = createFileRoute("/api/recurring/process")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const userId = await requireRequestUserId(request);
+        const userId = await requireFreeTierRequestUserId();
         const all = await listInvoices(userId);
         const now = Date.now();
         const generated: Invoice[] = [];

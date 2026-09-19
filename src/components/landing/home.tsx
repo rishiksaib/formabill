@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, FileCheck2, IndianRupee, Link2, Timer } from "lucide-react";
+import { ArrowRight, CreditCard, FileCheck2, Globe, Link2, Timer } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { InvoiceDocument } from "@/components/invoice/document";
 import { Button } from "@/components/ui/button";
@@ -10,18 +10,18 @@ const SAMPLE: Invoice = {
   number: "FB-0001",
   fromName: "North Studio",
   fromEmail: "hello@north.studio",
-  fromAddress: "Bengaluru, India",
+  fromAddress: "San Francisco, CA",
   client: { id: "c1", name: "Harbor Co.", email: "pay@harbor.co" },
   lineItems: [
-    { id: "1", description: "Brand identity system", quantity: 1, rate: 120000 },
-    { id: "2", description: "Product UI, 3 screens", quantity: 1, rate: 85000 },
+    { id: "1", description: "Brand identity system", quantity: 1, rate: 1500 },
+    { id: "2", description: "Product UI, 3 screens", quantity: 1, rate: 1200 },
   ],
-  taxRate: 18,
-  notes: "Payable via UPI, cards, or netbanking.",
+  taxRate: 0,
+  notes: "Payment via UPI, PayPal, cards, or bank transfer.",
   dueDate: "2026-10-02",
   status: "sent",
   createdAt: "2026-09-18",
-  currency: "INR",
+  currency: "USD",
 };
 
 const FEATURES = [
@@ -36,14 +36,14 @@ const FEATURES = [
     body: "Publish a clean invoice page and send a prefilled WhatsApp message with the amount and link.",
   },
   {
-    icon: IndianRupee,
-    title: "UPI or gateway pay",
-    body: "Give clients your UPI details or connect Razorpay. Their money goes directly to you.",
+    icon: CreditCard,
+    title: "Get paid your way",
+    body: "UPI for INR invoices, PayPal, cards, or bank details. Money goes directly to you.",
   },
   {
-    icon: FileCheck2,
-    title: "No cut of client payments",
-    body: "Razorpay may charge its own gateway fee. FormaBill does not take a percentage of what you earn.",
+    icon: Globe,
+    title: "UPI-native when you bill in INR",
+    body: "Instant UPI deep links (upi://) on public pages — only for INR. Other currencies show PayPal/bank.",
   },
 ];
 
@@ -67,14 +67,14 @@ export function LandingPage() {
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-12 lg:py-16">
         <div>
           <p className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
-            Fast pro invoices for independent work
+            Fast pro invoices for freelancers worldwide
           </p>
           <h1 className="mt-4 font-display text-4xl leading-[1.1] tracking-tight sm:text-6xl">
             Get paid without the payment-platform tax.
           </h1>
           <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
             Make a polished invoice in under a minute, share it on WhatsApp, and
-            let clients pay by UPI or gateway. FormaBill takes no cut of client payments.
+            let clients pay via UPI, PayPal, or your gateway. FormaBill takes no cut of client payments.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button size="lg" asChild>
@@ -94,14 +94,25 @@ export function LandingPage() {
       </section>
 
       <section className="border-y border-border bg-card/60">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:grid-cols-2 sm:gap-10 sm:px-6 lg:grid-cols-4">
           {FEATURES.map((f) => (
-            <div key={f.title}>
+            <div key={f.title} className="flex flex-col">
               <f.icon className="size-5 text-primary" />
               <h2 className="mt-4 font-display text-xl tracking-tight">{f.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
             </div>
           ))}
+          <div className="lg:col-span-4 pt-4 border-t border-border">
+            <div className="flex items-start gap-3">
+              <FileCheck2 className="size-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <h2 className="font-display text-xl tracking-tight">No cut of client payments</h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Gateways may charge their own fees. FormaBill does not take a percentage of what you earn.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -111,15 +122,15 @@ export function LandingPage() {
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           <article className="rounded-2xl border border-border bg-card p-8 shadow-paper">
             <p className="text-sm font-medium text-muted-foreground">Free</p>
-            <p className="mt-2 font-display text-4xl">₹0</p>
+            <p className="mt-2 font-display text-4xl">$0<span className="text-lg text-muted-foreground">/mo</span></p>
             <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
               <li>5 invoices per month</li>
               <li>PDF download</li>
               <li>Public share links</li>
               <li>Client list</li>
-              <li>UPI and Razorpay payment links</li>
+              <li>UPI, PayPal, and gateway payment links</li>
             </ul>
-            <Button className="mt-8" asChild>
+            <Button className="mt-8 w-full" asChild>
               <Link to="/app">Start free</Link>
             </Button>
           </article>
@@ -133,8 +144,8 @@ export function LandingPage() {
               <li>Remove FormaBill branding</li>
               <li>Everything in Free</li>
             </ul>
-            <Button className="mt-8 bg-card text-foreground hover:bg-card/90" asChild>
-              <Link to="/app/settings">Enable Pro in settings</Link>
+            <Button className="mt-8 w-full bg-card text-foreground hover:bg-card/90" asChild>
+              <Link to="/app">Get Pro</Link>
             </Button>
           </article>
         </div>

@@ -97,7 +97,8 @@ export function UserButton() {
     hasGateSessionMarker,
     noGateSessionOnServer,
   );
-  if (!user) return null;
+  // Don't render for dev fallback user (auth not configured)
+  if (!user || user.isDevFallback) return null;
   const label = user.displayName ?? user.primaryEmail ?? "Account";
   return (
     <div className="flex items-center gap-2">

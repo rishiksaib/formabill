@@ -8,11 +8,12 @@ import { n as setCookie, r as toResponse, t as H3Event } from "../_libs/h3-v2+ro
 import { AsyncLocalStorage } from "node:async_hooks";
 //#region node_modules/.nitro/vite/services/ssr/index.js
 var ssr_exports = /* @__PURE__ */ __exportAll$1({
-	a: () => __exportAll,
+	a: () => getRequest,
 	createServerEntry: () => createServerEntry,
 	default: () => server_default,
 	i: () => getServerFnById,
 	n: () => createServerFn,
+	o: () => __exportAll,
 	r: () => TSS_SERVER_FUNCTION,
 	t: () => server_exports
 });
@@ -87,6 +88,9 @@ function getH3Event() {
 	if (!event) throw new Error(`No StartEvent found in AsyncLocalStorage. Make sure you are using the function within the server runtime.`);
 	return event.h3Event;
 }
+function getRequest() {
+	return getH3Event().req;
+}
 /**
 * Set a cookie value by name.
 * @param name Name of the cookie to set
@@ -113,7 +117,7 @@ var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 * the dev styles URL for route-scoped CSS collection.
 */
 async function getStartManifest(matchedRoutes) {
-	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-BuUKzArt.mjs");
+	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-CK_g5lfg.mjs");
 	const startManifest = tsrStartManifest();
 	let routes = startManifest.routes;
 	routes[rootRouteId];
@@ -1403,7 +1407,7 @@ var getBaseManifest = getProdBaseManifest;
 var createEarlyHintsForRequest = createEarlyHintsCollector;
 async function loadEntries() {
 	const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-		import("./router-CP-Z3rz-.mjs").then((n) => n.t),
+		import("./router-CL0Q_gzp.mjs").then((n) => n.t),
 		import("./start-5Z2QO8AU.mjs"),
 		import("./empty-plugin-adapters-D9UWiqvJ.mjs")
 	]);
@@ -1850,4 +1854,4 @@ function createServerEntry(entry) {
 }
 var server_default = createServerEntry({ fetch });
 //#endregion
-export { __exportAll as a, createServerEntry, server_default as default, getServerFnById as i, createServerFn as n, ssr_exports as o, TSS_SERVER_FUNCTION as r, server_exports as t };
+export { getRequest as a, createServerEntry, server_default as default, getServerFnById as i, createServerFn as n, __exportAll as o, TSS_SERVER_FUNCTION as r, ssr_exports as s, server_exports as t };

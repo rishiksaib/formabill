@@ -37,6 +37,16 @@ export const authClient = createAuthClient({
  */
 export const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
+/**
+ * True when real federated auth is configured (GROK credentials present).
+ * Matches server-side `authConfigured` in `server.ts`.
+ */
+export const authConfigured =
+  authEnabled &&
+  Boolean(
+    import.meta.env.VITE_GROK_AUTH_CLIENT_ID || import.meta.env.VITE_GROK_AUTH_ISSUER,
+  );
+
 /** The upstream providers to render sign-in buttons for. */
 export { GROK_PROVIDERS };
 

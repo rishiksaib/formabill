@@ -24,11 +24,26 @@ export function appBaseUrl(request?: Request): string {
   const fromEnv =
     env("NEXT_PUBLIC_APP_URL") || env("APP_URL") || env("VITE_PUBLIC_APP_URL");
   if (fromEnv) return fromEnv.replace(/\/$/, "");
+  // Vercel auto-provides VERCEL_URL (host only, no protocol) — prefer it over
+  // request headers so share/pay links never leak localhost in production.
+  const vercelUrl = env("VERCEL_URL");
+  if (vercelUrl) return `https://${vercelUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
   if (request) {
-    const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-    const proto = request.headers.get("x-forwarded-proto") ?? "https";
-    if (host) return `${proto}://${host}`;
+    const forwarded = request.headers.get("x-forwarded-host");
+    if (forwarded) {
+      const proto = request.headers.get("x-forwarded-proto") ?? "https";
+      const host = forwarded.split(",")[0].trim();
+      if (host && !/^localhost(:\d+)?$/i.test(host) && host !== "127.0.0.1:8080") {
+        return `${proto}://${host}`;
+      }
+    }
+    const host = request.headers.get("host");
+    if (host && !/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host.trim())) {
+      return `https://${host.trim()}`;
+    }
   }
+  // Local development fallback only — production always resolves above via
+  // NEXT_PUBLIC_APP_URL, VERCEL_URL, or proxy headers.
   return "http://127.0.0.1:8080";
 }
 

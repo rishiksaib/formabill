@@ -6,18 +6,26 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "FormaBill";
+const APP_DESCRIPTION = "Fast pro invoices for freelancers worldwide. Share on WhatsApp, get paid via UPI, PayPal, or your gateway. FormaBill takes no cut of client payments.";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: APP_NAME },
-      {
-        name: "description",
-        content: "Publication-grade invoices in under 60 seconds. For independent designers.",
-      },
+      { title: `${APP_NAME} — ${APP_DESCRIPTION}` },
+      { name: "description", content: APP_DESCRIPTION },
       { name: "theme-color", content: "#1C3D36" },
+      // Open Graph
+      { property: "og:title", content: `${APP_NAME} — Fast pro invoices for freelancers worldwide` },
+      { property: "og:description", content: APP_DESCRIPTION },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: APP_NAME },
+      { property: "og:locale", content: "en_US" },
+      // Twitter
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: `${APP_NAME} — Fast pro invoices for freelancers worldwide` },
+      { name: "twitter:description", content: APP_DESCRIPTION },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },

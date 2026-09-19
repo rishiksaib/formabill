@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ function ClientsPage() {
   const { ready, clients, saveClient, deleteClient } = useStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
 
   if (!ready) return <div className="h-64 animate-pulse rounded-xl bg-muted/60" />;
 
@@ -43,7 +44,7 @@ function ClientsPage() {
       >
         <label className="grid gap-1.5">
           <Label>Name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className="grid gap-1.5">
           <Label>Email</Label>
@@ -60,6 +61,14 @@ function ClientsPage() {
         <div className="mt-8 rounded-xl border border-dashed border-border px-6 py-14 text-center">
           <Users className="mx-auto size-8 text-muted-foreground" />
           <p className="mt-4 font-display text-xl">No clients yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">Add your first client to reuse them in invoices.</p>
+          <Button
+            className="mt-6"
+            type="button"
+            onClick={() => nameRef.current?.focus()}
+          >
+            <Plus /> Add your first client
+          </Button>
         </div>
       ) : (
         <ul className="mt-6 divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">

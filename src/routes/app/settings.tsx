@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,15 +9,73 @@ import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store/context";
 
 export const Route = createFileRoute("/app/settings")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    pro: typeof search.pro === "string" ? search.pro : undefined,
+  }),
   component: SettingsPage,
 });
 
 function SettingsPage() {
   const { ready, settings, saveSettings } = useStore();
+  const { pro: proReturn } = Route.useSearch();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [proBusy, setProBusy] = useState(false);
+  const [serverPro, setServerPro] = useState<boolean | null>(null);
+  const [platformConfigured, setPlatformConfigured] = useState(false);
+  const [plan, setPlan] = useState<"pro_monthly" | "pro_yearly">("pro_monthly");
+
+  const loadProStatus = async () => {
+    try {
+      const response = await fetch("/api/pro/status");
+      if (!response.ok) return;
+      const status = (await response.json()) as { isPro?: boolean; configured?: boolean };
+      setServerPro(Boolean(status.isPro));
+      setPlatformConfigured(Boolean(status.configured));
+    } catch {
+      /* Pro status is best-effort — the page stays usable offline */
+    }
+  };
+
+  useEffect(() => {
+    if (!ready) return;
+    void loadProStatus();
+  }, [ready]);
+
+  // Razorpay returns here after a Pro payment — refresh so "Pro active"
+  // appears as soon as the webhook has flipped the server flag.
+  useEffect(() => {
+    if (!ready || proReturn !== "success") return;
+    toast.message("Pro payment received", {
+      description: "Activating your Pro workspace…",
+    });
+    void loadProStatus();
+    const timer = window.setTimeout(() => void loadProStatus(), 4000);
+    return () => window.clearTimeout(timer);
+  }, [ready, proReturn]);
 
   if (!ready) return <div className="h-64 animate-pulse rounded-xl bg-muted/60" />;
+
+  const development = import.meta.env.DEV;
+  const isPro = development ? Boolean(settings.isPro) : (serverPro ?? false);
+
+  const startProCheckout = async () => {
+    setProBusy(true);
+    try {
+      const response = await fetch("/api/pro/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      const json = (await response.json()) as { shortUrl?: string; error?: string; message?: string };
+      if (!response.ok || !json.shortUrl) throw new Error(json.error || json.message || "Pro checkout is unavailable");
+      window.location.href = json.shortUrl;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not start Pro checkout");
+    } finally {
+      setProBusy(false);
+    }
+  };
 
   const onLogo = (file: File | undefined) => {
     if (!file) return;
@@ -174,7 +232,11 @@ function SettingsPage() {
             </label>
             <div className="rounded-md border border-dashed border-border bg-background/70 p-3 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">Razorpay</p>
-              <p className="mt-1">Optional. Use test-mode keys while testing. The secret is stored locally for this MVP; never share it.</p>
+              <p className="mt-1">
+                Optional. Test keys only — the secret is stored in this browser and sent to the
+                server to create payment links. Never paste a live secret on a shared device, and
+                never share it.
+              </p>
               <Input
                 className="mt-3"
                 value={settings.paymentMethods?.razorpayKeyId || ""}
@@ -235,15 +297,67 @@ function SettingsPage() {
           <div>
             <h2 className="font-display text-xl">Pro workspace</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Demo toggle. Unlocks recurring invoices, reminders, and removes branding.
+              Pro is paid to FormaBill and unlocks recurring invoices, reminders, and branding
+              removal. Your client invoice money always goes to your own UPI, PayPal, or Razorpay
+              account — never to us.
             </p>
           </div>
-          <Switch
-            checked={Boolean(settings.isPro)}
-            onCheckedChange={(isPro) => void saveSettings({ isPro })}
-          />
         </div>
-        {settings.isPro ? (
+        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-5">
+          <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium">
+            {isPro ? "Pro active" : "Free plan"}
+          </span>
+          {!isPro ? (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Pro billing period">
+              <Button
+                type="button"
+                variant={plan === "pro_monthly" ? "default" : "outline"}
+                size="sm"
+                aria-pressed={plan === "pro_monthly"}
+                onClick={() => setPlan("pro_monthly")}
+              >
+                Monthly — $11/mo
+              </Button>
+              <Button
+                type="button"
+                variant={plan === "pro_yearly" ? "default" : "outline"}
+                size="sm"
+                aria-pressed={plan === "pro_yearly"}
+                onClick={() => setPlan("pro_yearly")}
+              >
+                Yearly — $99/yr
+              </Button>
+            </div>
+          ) : null}
+          {!isPro ? (
+            <Button type="button" disabled={proBusy} onClick={() => void startProCheckout()}>
+              {proBusy ? "Opening checkout…" : plan === "pro_yearly" ? "Get Pro — $99/yr" : "Get Pro — $11/mo"}
+            </Button>
+          ) : null}
+          {!isPro && !platformConfigured ? (
+            <p className="basis-full text-xs text-muted-foreground">
+              Demo mode — Pro checkout is not configured, so Upgrade will fail. In development you
+              can preview Pro with the local toggle below (preview only, not a real subscription).
+            </p>
+          ) : null}
+          {!isPro && platformConfigured ? (
+            <p className="basis-full text-xs text-muted-foreground">
+              Secure checkout via Razorpay. Use test keys first — switch to live platform keys when
+              you are ready to charge. Pro is billed by FormaBill; client invoice money still goes
+              to your own accounts.
+            </p>
+          ) : null}
+          {development ? (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch
+                checked={Boolean(settings.isPro)}
+                onCheckedChange={(value) => void saveSettings({ isPro: value })}
+              />
+              Local Pro preview (development only — not a real subscription)
+            </label>
+          ) : null}
+        </div>
+        {isPro ? (
           <div className="mt-5 border-t border-border pt-5">
             <label className="grid gap-1.5">
               <Label>Remind this many days before due</Label>

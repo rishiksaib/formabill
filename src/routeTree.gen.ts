@@ -23,8 +23,11 @@ import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as InvIdRouteImport } from './routes/inv.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiInvoicesIdRouteImport } from './routes/api/invoices.$id'
+import { Route as ApiProCheckoutRouteImport } from './routes/api/pro/checkout'
+import { Route as ApiProStatusRouteImport } from './routes/api/pro/status'
 import { Route as ApiRecurringProcessRouteImport } from './routes/api/recurring/process'
 import { Route as ApiWebhooksRazorpayRouteImport } from './routes/api/webhooks/razorpay'
+import { Route as ApiWebhooksRazorpayPlatformRouteImport } from './routes/api/webhooks/razorpay-platform'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -96,6 +99,16 @@ const ApiInvoicesIdRoute = ApiInvoicesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiInvoicesRoute,
 } as any)
+const ApiProCheckoutRoute = ApiProCheckoutRouteImport.update({
+  id: '/api/pro/checkout',
+  path: '/api/pro/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProStatusRoute = ApiProStatusRouteImport.update({
+  id: '/api/pro/status',
+  path: '/api/pro/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRecurringProcessRoute = ApiRecurringProcessRouteImport.update({
   id: '/api/recurring/process',
   path: '/api/recurring/process',
@@ -106,6 +119,12 @@ const ApiWebhooksRazorpayRoute = ApiWebhooksRazorpayRouteImport.update({
   path: '/api/webhooks/razorpay',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksRazorpayPlatformRoute =
+  ApiWebhooksRazorpayPlatformRouteImport.update({
+    id: '/api/webhooks/razorpay-platform',
+    path: '/api/webhooks/razorpay-platform',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -122,8 +141,11 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/invoices/$id': typeof ApiInvoicesIdRoute
+  '/api/pro/checkout': typeof ApiProCheckoutRoute
+  '/api/pro/status': typeof ApiProStatusRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
   '/api/webhooks/razorpay': typeof ApiWebhooksRazorpayRoute
+  '/api/webhooks/razorpay-platform': typeof ApiWebhooksRazorpayPlatformRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -139,8 +161,11 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/invoices/$id': typeof ApiInvoicesIdRoute
+  '/api/pro/checkout': typeof ApiProCheckoutRoute
+  '/api/pro/status': typeof ApiProStatusRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
   '/api/webhooks/razorpay': typeof ApiWebhooksRazorpayRoute
+  '/api/webhooks/razorpay-platform': typeof ApiWebhooksRazorpayPlatformRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -158,8 +183,11 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/invoices/$id': typeof ApiInvoicesIdRoute
+  '/api/pro/checkout': typeof ApiProCheckoutRoute
+  '/api/pro/status': typeof ApiProStatusRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
   '/api/webhooks/razorpay': typeof ApiWebhooksRazorpayRoute
+  '/api/webhooks/razorpay-platform': typeof ApiWebhooksRazorpayPlatformRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -178,8 +206,11 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/auth/$'
     | '/api/invoices/$id'
+    | '/api/pro/checkout'
+    | '/api/pro/status'
     | '/api/recurring/process'
     | '/api/webhooks/razorpay'
+    | '/api/webhooks/razorpay-platform'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -195,8 +226,11 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/auth/$'
     | '/api/invoices/$id'
+    | '/api/pro/checkout'
+    | '/api/pro/status'
     | '/api/recurring/process'
     | '/api/webhooks/razorpay'
+    | '/api/webhooks/razorpay-platform'
   id:
     | '__root__'
     | '/'
@@ -213,8 +247,11 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/auth/$'
     | '/api/invoices/$id'
+    | '/api/pro/checkout'
+    | '/api/pro/status'
     | '/api/recurring/process'
     | '/api/webhooks/razorpay'
+    | '/api/webhooks/razorpay-platform'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -227,8 +264,11 @@ export interface RootRouteChildren {
   ApiInvoicesRoute: typeof ApiInvoicesRouteWithChildren
   InvIdRoute: typeof InvIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiProCheckoutRoute: typeof ApiProCheckoutRoute
+  ApiProStatusRoute: typeof ApiProStatusRoute
   ApiRecurringProcessRoute: typeof ApiRecurringProcessRoute
   ApiWebhooksRazorpayRoute: typeof ApiWebhooksRazorpayRoute
+  ApiWebhooksRazorpayPlatformRoute: typeof ApiWebhooksRazorpayPlatformRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -331,6 +371,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInvoicesIdRouteImport
       parentRoute: typeof ApiInvoicesRoute
     }
+    '/api/pro/checkout': {
+      id: '/api/pro/checkout'
+      path: '/api/pro/checkout'
+      fullPath: '/api/pro/checkout'
+      preLoaderRoute: typeof ApiProCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pro/status': {
+      id: '/api/pro/status'
+      path: '/api/pro/status'
+      fullPath: '/api/pro/status'
+      preLoaderRoute: typeof ApiProStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/recurring/process': {
       id: '/api/recurring/process'
       path: '/api/recurring/process'
@@ -343,6 +397,13 @@ declare module '@tanstack/react-router' {
       path: '/api/webhooks/razorpay'
       fullPath: '/api/webhooks/razorpay'
       preLoaderRoute: typeof ApiWebhooksRazorpayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/razorpay-platform': {
+      id: '/api/webhooks/razorpay-platform'
+      path: '/api/webhooks/razorpay-platform'
+      fullPath: '/api/webhooks/razorpay-platform'
+      preLoaderRoute: typeof ApiWebhooksRazorpayPlatformRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -386,8 +447,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInvoicesRoute: ApiInvoicesRouteWithChildren,
   InvIdRoute: InvIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiProCheckoutRoute: ApiProCheckoutRoute,
+  ApiProStatusRoute: ApiProStatusRoute,
   ApiRecurringProcessRoute: ApiRecurringProcessRoute,
   ApiWebhooksRazorpayRoute: ApiWebhooksRazorpayRoute,
+  ApiWebhooksRazorpayPlatformRoute: ApiWebhooksRazorpayPlatformRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

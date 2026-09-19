@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { authClient } from "@/lib/auth/client";
+import { authClient, authConfigured } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,63 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+function readWaitlistEmail(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem("formabill-waitlist-email");
+  } catch {
+    return null;
+  }
+}
+
+function LoginWaitlist() {
+  const [email, setEmail] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = email.trim();
+    if (!value) return;
+    try {
+      window.localStorage.setItem("formabill-waitlist-email", value);
+    } catch {
+      /* storage unavailable — still confirm */
+    }
+    setSaved(value);
+    setEmail("");
+  };
+
+  return (
+    <main className="grid min-h-dvh place-items-center bg-secondary/30 px-6 py-12">
+      <section className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-paper sm:p-8">
+        <Link to="/" className="font-display text-xl">FormaBill</Link>
+        <p className="mt-8 text-xs tracking-[0.16em] text-muted-foreground uppercase">Coming soon</p>
+        <h1 className="mt-2 font-display text-3xl">Sign in for sync &amp; Pro</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Accounts aren&apos;t live yet — create, publish, share, mark paid, and get paid all work
+          anonymously today. Leave your email and we&apos;ll invite you when sign-in opens.
+        </p>
+        {saved ?? readWaitlistEmail() ? (
+          <p className="mt-6 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900" role="status">
+            You&apos;re on the list{saved ? ` as ${saved}` : ""}. We&apos;ll be in touch.
+          </p>
+        ) : (
+          <form className="mt-6 grid gap-4" onSubmit={submit}>
+            <label className="grid gap-1.5">
+              <Label>Email</Label>
+              <Input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="you@studio.com" />
+            </label>
+            <Button type="submit">Notify me</Button>
+          </form>
+        )}
+        <Button className="mt-5 w-full" asChild>
+          <Link to="/app">Start invoicing</Link>
+        </Button>
+      </section>
+    </main>
+  );
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
@@ -17,6 +74,9 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  // Auth incomplete (no real provider configured): never show a fake login —
+  // show the email waitlist instead. Real form below only runs when configured.
+  if (!authConfigured) return <LoginWaitlist />;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

@@ -95,3 +95,18 @@ export async function requireUserId(bearerToken?: string): Promise<string> {
   if (!user) throw new UnauthorizedError();
   return user.id;
 }
+
+/**
+ * Free-tier user id for invoice flows (create, publish/share, mark paid,
+ * get paid). Signed-in visitors get their verified id; logged-out visitors get
+ * the shared `dev-user` id when there is no real database — so the free local
+ * flow never hits a sign-in gate. Fail-closed when `DATABASE_URL` is set: one
+ * shared id on a real database would let every visitor read/write everyone's
+ * rows, so logged-out requests are rejected there instead.
+ */
+export async function requireFreeTierUserId(bearerToken?: string): Promise<string> {
+  const user = await getSessionUser(bearerToken).catch(() => null);
+  if (user) return user.id;
+  if (databaseConfigured) throw new UnauthorizedError();
+  return DEV_USER_ID;
+}

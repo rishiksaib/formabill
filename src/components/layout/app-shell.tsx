@@ -1,8 +1,11 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { FileText, Plus, Settings, Users } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
+import { WaitlistModal } from "@/components/auth/waitlist-modal";
 import { cn } from "@/lib/utils";
+import { authConfigured } from "@/lib/auth/client";
+import { Button } from "@/components/ui/button";
 
 const NAV = [
   { to: "/app", label: "New invoice", icon: Plus },
@@ -13,6 +16,7 @@ const NAV = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
 
   return (
     <div className="min-h-dvh bg-background">
@@ -42,10 +46,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            {!authConfigured && (
+              <Button variant="ghost" size="sm" className="ml-2" onClick={() => setWaitlistOpen(true)}>
+                Sign in for sync &amp; Pro — soon
+              </Button>
+            )}
           </nav>
         </div>
       </header>
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
+      <WaitlistModal open={waitlistOpen} onClose={() => setWaitlistOpen(false)} />
     </div>
   );
 }

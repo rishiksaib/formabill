@@ -126,6 +126,26 @@ var Copy = createLucideIcon("copy", [["rect", {
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var CreditCard = createLucideIcon("credit-card", [["rect", {
+	width: "20",
+	height: "14",
+	x: "2",
+	y: "5",
+	rx: "2",
+	key: "ynyp8z"
+}], ["line", {
+	x1: "2",
+	x2: "22",
+	y1: "10",
+	y2: "10",
+	key: "1b3vmo"
+}]]);
+/**
+* @license lucide-react v0.510.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var Download = createLucideIcon("download", [
 	["path", {
 		d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",
@@ -169,6 +189,26 @@ var FileCheck2 = createLucideIcon("file-check-2", [
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var FileQuestion = createLucideIcon("file-question", [
+	["path", {
+		d: "M12 17h.01",
+		key: "p32p05"
+	}],
+	["path", {
+		d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z",
+		key: "1mlx9k"
+	}],
+	["path", {
+		d: "M9.1 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3",
+		key: "mhlwft"
+	}]
+]);
+/**
+* @license lucide-react v0.510.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var FileText = createLucideIcon("file-text", [
 	["path", {
 		d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z",
@@ -197,26 +237,20 @@ var FileText = createLucideIcon("file-text", [
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
-var IndianRupee = createLucideIcon("indian-rupee", [
-	["path", {
-		d: "M6 3h12",
-		key: "ggurg9"
+var Globe = createLucideIcon("globe", [
+	["circle", {
+		cx: "12",
+		cy: "12",
+		r: "10",
+		key: "1mglay"
 	}],
 	["path", {
-		d: "M6 8h12",
-		key: "6g4wlu"
+		d: "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20",
+		key: "13o1zl"
 	}],
 	["path", {
-		d: "m6 13 8.5 8",
-		key: "u1kupk"
-	}],
-	["path", {
-		d: "M6 13h3",
-		key: "wdp6ag"
-	}],
-	["path", {
-		d: "M9 13c6.667 0 6.667-10 0-10",
-		key: "1nkvk2"
+		d: "M2 12h20",
+		key: "9i4pu4"
 	}]
 ]);
 /**
@@ -402,4 +436,4 @@ var Wallet = createLucideIcon("wallet", [["path", {
 	key: "xoc0q4"
 }]]);
 //#endregion
-export { Timer as a, LoaderCircle as c, FileText as d, FileCheck2 as f, ArrowRight as g, ArrowUpRight as h, Trash2 as i, Link2 as l, Copy as m, Users as n, Settings as o, Download as p, TriangleAlert as r, Plus as s, Wallet as t, IndianRupee as u };
+export { ArrowUpRight as _, Timer as a, LoaderCircle as c, FileText as d, FileQuestion as f, Copy as g, CreditCard as h, Trash2 as i, Link2 as l, Download as m, Users as n, Settings as o, FileCheck2 as p, TriangleAlert as r, Plus as s, Wallet as t, Globe as u, ArrowRight as v };

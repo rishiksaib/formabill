@@ -10,7 +10,7 @@ English-speaking markets, India-friendly payments via **Razorpay** (not Stripe).
 - Local-first storage (IndexedDB via Dexie) plus a published JSON store for public `/inv/:id` links
 - PDF download matching the invoice
 - Logo in settings (data URL) on preview, public page, and PDF
-- Get Paid → Razorpay Payment Links (amount in paise)
+- Get Paid → end-user Razorpay Payment Links (amount in paise)
 - Recurring invoices and branding removal behind a Pro toggle
 - Configurable currency: USD, EUR, GBP, INR, AUD, CAD, or SGD
 - Email/password accounts with per-user invoice ownership
@@ -62,9 +62,12 @@ GROK_AUTH_CLIENT_SECRET=
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
+RAZORPAY_PLATFORM_KEY_ID=
+RAZORPAY_PLATFORM_KEY_SECRET=
+RAZORPAY_PLATFORM_WEBHOOK_SECRET=
 ```
 
-- `NEXT_PUBLIC_APP_URL`: public origin used for Razorpay callbacks.
+- `NEXT_PUBLIC_APP_URL`: public origin used for share links and Razorpay callbacks. Falls back to Vercel's `VERCEL_URL`, then request proxy headers — localhost is only ever a local-dev fallback.
 - `DATABASE_URL`: pooled Postgres connection string for Better Auth and production database access.
 - `BETTER_AUTH_URL`: deployed app URL used by Better Auth.
 - `BETTER_AUTH_SECRET`: long random server-only Better Auth signing secret.
@@ -72,6 +75,8 @@ RAZORPAY_WEBHOOK_SECRET=
 - `GROK_AUTH_ISSUER`, `GROK_AUTH_CLIENT_ID`, `GROK_AUTH_CLIENT_SECRET`: optional federated auth settings.
 - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`: optional Razorpay test/live credentials for Payment Links.
 - `RAZORPAY_WEBHOOK_SECRET`: server-only secret used to verify `payment_link.paid` webhooks.
+- `RAZORPAY_PLATFORM_KEY_ID`, `RAZORPAY_PLATFORM_KEY_SECRET`: FormaBill merchant test/live credentials for the Pro subscription.
+- `RAZORPAY_PLATFORM_WEBHOOK_SECRET`: separate webhook secret for the FormaBill Pro webhook.
 
 Razorpay keys are optional. Manual UPI, PayPal, and bank payment details work without them. Never commit secrets or put them in client-side `VITE_` variables.
 
@@ -97,7 +102,21 @@ The Free plan allows five newly published invoices per calendar month per user. 
 4. Amounts are sent in **paise** (`₹1.00` = `100`).
 5. Stripe is invite-only in India and is out of scope.
 
+For Pro test mode, create a Razorpay test-mode Payment Link using the platform keys, configure its webhook endpoint as `https://your-domain.example/api/webhooks/razorpay-platform`, subscribe to `payment_link.paid`, and complete a test payment. Return users land at `/app/settings?pro=success`; the webhook is authoritative and sets `user.isPro`.
+
 Runtime filesystem writes work in this sandbox (`data/invoices.json`). On serverless hosts they may fall back to `/tmp` and in-memory; republish an invoice after a cold start if a public link 404s.
+
+## Production checklist
+
+Before going live, walk through these once:
+
+- [ ] **Env**: set `NEXT_PUBLIC_APP_URL` (and `BETTER_AUTH_URL`) to the deployed `https://` URL — share/pay links and Razorpay callbacks derive from it, never localhost. `VERCEL_URL` is used automatically when set.
+- [ ] **Secrets**: `BETTER_AUTH_SECRET` is a long random value; `DATABASE_URL` is a pooled Postgres string; Razorpay live keys are in the host env, never committed, never in `VITE_` vars.
+- [ ] **Deploy**: `npm run build` passes with zero errors; verify `/`, `/app`, `/app/settings`, and one published `/inv/[id]`.
+- [ ] **INR vs USD pay**: an `INR` invoice shows UPI (copy + `upi://pay` with plain `@` VPA, `cu=INR`); `USD`/`EUR`/`GBP` invoices hide all UPI intents and show PayPal/bank details with the "UPI is available for INR invoices only" note.
+- [ ] **Mark as paid**: with no Razorpay keys, Get Paid explains "Add UPI in Settings or connect Razorpay"; after receiving money manually, the owner marks the invoice **Paid** and the public page hides every pay CTA.
+- [ ] **Abuse guard**: `POST /api/invoices` (30/min/IP) and `POST /api/checkout` (20/min/IP) return `429 + Retry-After` past the limit; the editor surfaces the message inline and via toast.
+- [ ] **Persistence**: the JSON file store is not durable on serverless — plan the Postgres `invoices` migration below before relying on public links in production.
 
 ## Production deployment
 
@@ -124,9 +143,37 @@ Minimal migration plan:
 
 Supabase Postgres, Neon Postgres, or Vercel Postgres are suitable minimal alternatives. Vercel Blob can store backups, but it is not a good concurrent transactional replacement for invoice records.
 
-## Pro (demo)
+## Pro subscription
 
-Settings → **Pro workspace**. Unlocks recurring invoices, due-date reminders (stored on the invoice; email sending is not wired in v1), and removes “Made with FormaBill”. Price: **$11/mo or $99/yr**.
+Settings → **Pro workspace** offers a real FormaBill subscription checkout with two plans:
+
+| Plan | Amount | Razorpay notes |
+| --- | --- | --- |
+| Monthly | **$11/mo** | `plan: pro_monthly` |
+| Yearly | **$99/yr** | `plan: pro_yearly` |
+
+The buyer picks a plan, **Get Pro** creates a Razorpay Payment Link for that exact amount, and Razorpay returns them to `/app/settings?pro=success`. A verified `payment_link.paid` webhook at `/api/webhooks/razorpay-platform` then sets that user’s server-side `isPro` flag — the webhook is authoritative, and the settings page re-checks status on return. Pro bypasses the five-invoice monthly limit and unlocks recurring invoices, reminders, and branding removal. The free limit stays enforced for everyone else (the sixth publish in a month returns `402` with the upgrade message).
+
+Pro money is platform revenue: it is paid to FormaBill’s merchant account. Client invoice money is separate — it always goes to the user’s own UPI, PayPal, or Razorpay account, never to us.
+
+### Test mode first
+
+1. Use **test-mode** platform keys (`RAZORPAY_PLATFORM_KEY_ID`, `RAZORPAY_PLATFORM_KEY_SECRET` from the Razorpay dashboard, test mode).
+2. Add `RAZORPAY_PLATFORM_WEBHOOK_SECRET` and register `https://<your-host>/api/webhooks/razorpay-platform` for the `payment_link.paid` event.
+3. Set `NEXT_PUBLIC_APP_URL` to the public origin so the checkout return lands on `/app/settings?pro=success`.
+4. Pick Monthly in Settings → **Get Pro**, complete the test payment, and confirm the badge flips to **Pro active** (the page re-checks automatically; a delayed webhook catches up within seconds).
+5. Repeat for Yearly. Only switch the platform keys to live when both plans verify end to end.
+
+### Environment variables (Pro)
+
+```
+RAZORPAY_PLATFORM_KEY_ID=rzp_test_xxxxx        # FormaBill merchant account (test first)
+RAZORPAY_PLATFORM_KEY_SECRET=xxxxxxxxxxxx      # server-only, never commit
+RAZORPAY_PLATFORM_WEBHOOK_SECRET=xxxxxxxxxxxx  # verifies /api/webhooks/razorpay-platform
+NEXT_PUBLIC_APP_URL=https://your-app.example   # checkout return + callback origin
+```
+
+These platform credentials are for FormaBill’s merchant account. They must never be confused with `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`, which are user-provided credentials for collecting that user’s client invoice payments. In production there is no Pro toggle — the development preview switch only renders in dev builds.
 
 ## Out of scope (v1)
 

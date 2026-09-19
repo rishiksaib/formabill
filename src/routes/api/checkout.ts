@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPaymentLink, razorpayConfigured } from "@/lib/razorpay.server";
 import { getInvoice, markInvoicePaid, upsertInvoice } from "@/lib/server-store.server";
-import { requireRequestUserId } from "@/lib/request-auth.server";
+import { requireFreeTierRequestUserId } from "@/lib/request-auth.server";
+import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rate-limit.server";
 
 export const Route = createFileRoute("/api/checkout")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         try {
+          const limit = checkRateLimit(`checkout:POST:${clientIp(request)}`, 20, 60_000);
+          if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSec);
           const body = (await request.json()) as {
             invoiceId?: string;
             confirmDemo?: boolean;
@@ -17,8 +20,8 @@ export const Route = createFileRoute("/api/checkout")({
           if (!body.invoiceId) {
             return Response.json({ error: "invoiceId is required" }, { status: 400 });
           }
-          const userId = await requireRequestUserId(request);
-          const invoice = await getInvoice(body.invoiceId, userId);
+          const userId = await requireFreeTierRequestUserId();
+          const invoice = (await getInvoice(body.invoiceId, userId)) ?? (await getInvoice(body.invoiceId));
           if (!invoice) {
             return Response.json({ error: "Invoice not found. Publish it first." }, { status: 404 });
           }
@@ -62,7 +65,7 @@ export const Route = createFileRoute("/api/checkout")({
         } catch (err) {
           return Response.json(
             { error: err instanceof Error ? err.message : "Checkout failed" },
-            { status: err instanceof Error && err.message.includes("Sign in required") ? 401 : 400 },
+            { status: 400 },
           );
         }
       },
