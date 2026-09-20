@@ -56,9 +56,23 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
   assert.deepEqual(pendingMigrations(["auth", "README.md"], []), []);
 });
 
-test("the auth schema ships outside the globbed directory", () => {
+test("the globbed directory holds the full ordered schema", () => {
+  // Sign-in is ON for this workspace, so migrations/ intentionally contains
+  // the copied auth schema plus every app migration — all applied in name
+  // order on fresh databases (Neon at build, PGLite at startup).
   const migrationsDir = join(projectRoot(), "migrations");
-  assert.deepEqual(pendingMigrations(readdirSync(migrationsDir), []), []);
+  const pending = pendingMigrations(readdirSync(migrationsDir), []).map((m) => m.name);
+  assert.deepEqual(pending, [
+    "0001_auth.sql",
+    "0002_user_invoice_quota.sql",
+    "0003_mcp_tokens.sql",
+    "0004_studio_settings.sql",
+    "0005_mcp_clients.sql",
+    "0006_user_lifetime_pro.sql",
+    "0007_user_pro_plan.sql",
+    "0008_gift_codes.sql",
+    "0009_referrals.sql",
+  ]);
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
 });
 
