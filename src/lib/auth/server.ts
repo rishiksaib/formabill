@@ -211,7 +211,23 @@ export const auth = betterAuth({
   session: { cookieCache: { enabled: true, maxAge: 300 } },
 
   // Local email/password — toggled only via `./email-password` (not a plugin).
-  ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),
+  // `sendResetPassword` powers the forgot-password flow (`/forgot-password` →
+  // email link → `/reset-password`): tokens expire after 1 hour and are
+  // single-use (Better Auth consumes the verification value on reset). Needs
+  // SMTP env (see `./mailer.server`); without it the endpoint fails loudly
+  // instead of pretending to send.
+  ...(emailAndPasswordEnabled
+    ? {
+        emailAndPassword: {
+          enabled: true,
+          resetPasswordTokenExpiresIn: 3600,
+          sendResetPassword: async ({ user, url }) => {
+            const { sendPasswordResetEmail } = await import("./mailer.server");
+            await sendPasswordResetEmail(user.email, url);
+          },
+        },
+      }
+    : {}),
 
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
   // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a

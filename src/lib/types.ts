@@ -64,6 +64,9 @@ export type Client = {
   name: string;
   email: string;
   address?: string;
+  phone?: string;
+  company?: string;
+  notes?: string;
   createdAt?: string;
 };
 

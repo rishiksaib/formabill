@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import { Copy, Download, Link2, Loader2, Plus, Trash2, Wallet } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Copy, Download, Link2, Loader2, Plus, Sparkles, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { InvoiceDocument } from "@/components/invoice/document";
 import { Badge } from "@/components/ui/badge";
@@ -52,9 +52,27 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [autoSaveError, setAutoSaveError] = useState<string | null>(null);
+  // Pro unlocks (recurring, unbranded preview) always come from the server —
+  // there is no local override.
+  const [serverPro, setServerPro] = useState(false);
   const saveTimer = useRef<number | null>(null);
   const session = useRef<string | null>(null);
   const dirty = useRef(false);
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    void fetch("/api/pro/status")
+      .then(async (response) => {
+        if (!response.ok || cancelled) return;
+        const status = (await response.json()) as { isPro?: boolean };
+        if (!cancelled) setServerPro(Boolean(status.isPro));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [ready]);
 
   useEffect(() => {
     if (!ready) return;
@@ -121,7 +139,7 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
     return <div className="h-96 animate-pulse rounded-xl bg-muted/60" />;
   }
 
-  const branded = !settings.isPro;
+  const branded = !serverPro;
   const patch = (partial: Partial<Invoice>) => {
     dirty.current = true;
     setInvoice((prev) => (prev ? { ...prev, ...partial } : prev));
@@ -301,6 +319,16 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
   };
 
   const effectiveCurrency = invoice.currency || settings.defaultCurrency || "USD";
+  const paymentMethods = invoice.paymentMethods || {};
+  const hasBankDetails = Boolean(
+    paymentMethods.bankName ||
+      paymentMethods.bankAccountName ||
+      paymentMethods.bankAccount ||
+      paymentMethods.bankIfscSwift,
+  );
+  const hasFromDetails = Boolean(
+    invoice.fromName.trim() || invoice.fromEmail.trim() || (invoice.fromAddress || "").trim(),
+  );
   const saveStateLabel = isSaving
     ? "Saving…"
     : autoSaveError
@@ -325,7 +353,108 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
           <Badge variant={invoice.status}>{invoice.status}</Badge>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-border bg-secondary/40 p-3 sm:p-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => void onGetPaid()}
+              disabled={busy !== null}
+              title="Publish and collect payment via Razorpay, UPI, or PayPal"
+            >
+              {busy === "pay" ? <Loader2 className="animate-spin" /> : <Wallet />}
+              Get paid
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full"
+              onClick={() => void onCopyLink()}
+              disabled={busy !== null}
+              title="Save, publish, then copy the public link"
+            >
+              {busy === "link" ? <Loader2 className="animate-spin" /> : <Copy />}
+              Copy link
+            </Button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void onSave()}
+                disabled={busy !== null}
+                title="Save and publish the public page"
+              >
+                {busy === "save" ? <Loader2 className="animate-spin" /> : null}
+                Save
+              </Button>
+              <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Invoice status">
+                {(
+                  [
+                    { value: "draft", label: "Draft" },
+                    { value: "sent", label: "Sent" },
+                    { value: "paid", label: "Paid" },
+                  ] as const
+                ).map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    aria-pressed={invoice.status === s.value}
+                    onClick={() => void setStatus(s.value)}
+                    className={`cursor-pointer px-3 py-1.5 text-xs font-medium transition-colors ${
+                      invoice.status === s.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void onShareWhatsApp()}
+                disabled={busy !== null}
+                title="Save, publish, then open WhatsApp share"
+              >
+                WhatsApp
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void onShareEmail()}
+                disabled={busy !== null}
+                title="Save, publish, then open email share"
+              >
+                Email
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void onPdf()}
+                disabled={busy !== null}
+                title="Download PDF"
+              >
+                {busy === "pdf" ? <Loader2 className="animate-spin" /> : <Download />}
+                PDF
+              </Button>
+            </div>
+          </div>
+          {publishError ? (
+            <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+              {publishError}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <Field label="Invoice number">
             <Input value={invoice.number} onChange={(e) => patch({ number: e.target.value })} />
           </Field>
@@ -334,24 +463,7 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
           </Field>
         </div>
 
-        <h2 className="mt-8 mb-3 text-sm font-medium">From</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Studio name">
-            <Input value={invoice.fromName} onChange={(e) => patch({ fromName: e.target.value })} />
-          </Field>
-          <Field label="Email">
-            <Input type="email" value={invoice.fromEmail} onChange={(e) => patch({ fromEmail: e.target.value })} />
-          </Field>
-        </div>
-        <Field label="Address" className="mt-4">
-          <Textarea
-            rows={2}
-            value={invoice.fromAddress || ""}
-            onChange={(e) => patch({ fromAddress: e.target.value })}
-          />
-        </Field>
-
-        <h2 className="mt-8 mb-3 text-sm font-medium">Bill to</h2>
+        <h2 className="mt-6 mb-3 text-sm font-medium">Bill to</h2>
         {clients.length > 0 ? (
           <Field label="Existing client" className="mb-4">
             <select
@@ -388,7 +500,7 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
           </Field>
         </div>
 
-        <div className="mt-8 mb-3 flex items-center justify-between">
+        <div className="mt-6 mb-3 flex items-center justify-between">
           <h2 className="text-sm font-medium">Line items</h2>
           <Button
             type="button"
@@ -495,14 +607,45 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
 
         <Field label="Notes" className="mt-4">
           <Textarea
-            rows={3}
+            rows={2}
             placeholder="Payment via UPI, cards, or netbanking. Thank you."
             value={invoice.notes}
             onChange={(e) => patch({ notes: e.target.value })}
           />
         </Field>
 
-        <div className="mt-8 rounded-lg border border-border bg-secondary/40 p-4">
+        <details
+          open={hasFromDetails || undefined}
+          className="mt-6 overflow-hidden rounded-lg border border-border"
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium">
+            Studio details
+            {hasFromDetails ? (
+              <span className="max-w-40 truncate text-xs font-normal text-muted-foreground">
+                {invoice.fromName || invoice.fromEmail}
+              </span>
+            ) : (
+              <span className="text-xs font-normal text-muted-foreground">Prefilled from Settings</span>
+            )}
+          </summary>
+          <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
+            <Field label="Studio name">
+              <Input value={invoice.fromName} onChange={(e) => patch({ fromName: e.target.value })} />
+            </Field>
+            <Field label="Email">
+              <Input type="email" value={invoice.fromEmail} onChange={(e) => patch({ fromEmail: e.target.value })} />
+            </Field>
+            <Field label="Address" className="sm:col-span-2">
+              <Textarea
+                rows={2}
+                value={invoice.fromAddress || ""}
+                onChange={(e) => patch({ fromAddress: e.target.value })}
+              />
+            </Field>
+          </div>
+        </details>
+
+        <div className="mt-6 rounded-lg border border-border bg-secondary/40 p-4">
           <h2 className="text-sm font-medium">Payment details</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             These details are shown to your client. Money goes directly to your UPI, bank, or PayPal account.
@@ -523,50 +666,79 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
                 placeholder="paypal.me/yourname or email"
               />
             </Field>
-            <Field label="Bank name">
-              <Input
-                value={invoice.paymentMethods?.bankName || ""}
-                onChange={(e) => patch({ paymentMethods: { ...(invoice.paymentMethods || {}), bankName: e.target.value } })}
-                placeholder="HDFC Bank"
-              />
-            </Field>
-            <Field label="Account name">
-              <Input
-                value={invoice.paymentMethods?.bankAccountName || ""}
-                onChange={(e) => patch({ paymentMethods: { ...(invoice.paymentMethods || {}), bankAccountName: e.target.value } })}
-                placeholder="Your name or business"
-              />
-            </Field>
-            <Field label="Account number / IBAN">
-              <Input
-                value={invoice.paymentMethods?.bankAccount || ""}
-                onChange={(e) => patch({ paymentMethods: { ...(invoice.paymentMethods || {}), bankAccount: e.target.value } })}
-                placeholder="Acc. no / IBAN"
-              />
-            </Field>
-            <Field label="IFSC / SWIFT">
-              <Input
-                value={invoice.paymentMethods?.bankIfscSwift || ""}
-                onChange={(e) => patch({ paymentMethods: { ...(invoice.paymentMethods || {}), bankIfscSwift: e.target.value } })}
-                placeholder="IFSC or SWIFT code"
-              />
-            </Field>
           </div>
+          <details
+            open={hasBankDetails || undefined}
+            className="mt-4 overflow-hidden rounded-lg border border-border bg-card"
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium">
+              Add bank details
+              {hasBankDetails ? (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+                  Added
+                </span>
+              ) : (
+                <span className="text-xs font-normal text-muted-foreground">Optional</span>
+              )}
+            </summary>
+            <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
+              <Field label="Bank name">
+                <Input
+                  value={invoice.paymentMethods?.bankName || ""}
+                  onChange={(e) => patch({ paymentMethods: { ...(invoice.paymentMethods || {}), bankName: e.target.value } })}
+                  placeholder="HDFC Bank"
+                />
+              </Field>
+              <Field label="Account name">
+                <Input
+                  value={invoice.paymentMethods?.bankAccountName || ""}
+                  onChange={(e) => patch({ paymentMethods: { ...(invoice.paymentMethods || {}), bankAccountName: e.target.value } })}
+                  placeholder="Your name or business"
+                />
+              </Field>
+              <Field label="Account number / IBAN">
+                <Input
+                  value={invoice.paymentMethods?.bankAccount || ""}
+                  onChange={(e) => patch({ paymentMethods: { ...(invoice.paymentMethods || {}), bankAccount: e.target.value } })}
+                  placeholder="Acc. no / IBAN"
+                />
+              </Field>
+              <Field label="IFSC / SWIFT">
+                <Input
+                  value={invoice.paymentMethods?.bankIfscSwift || ""}
+                  onChange={(e) => patch({ paymentMethods: { ...(invoice.paymentMethods || {}), bankIfscSwift: e.target.value } })}
+                  placeholder="IFSC or SWIFT code"
+                />
+              </Field>
+            </div>
+          </details>
         </div>
 
-        <div className="mt-8 rounded-lg border border-border bg-secondary/40 p-4">
+        <div className="mt-6 rounded-xl border border-primary/25 bg-gradient-to-br from-primary/5 to-transparent p-4">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium">Recurring invoice</p>
-              <p className="text-xs text-muted-foreground">
-                {settings.isPro
-                  ? "Generate the next invoice automatically."
-                  : "Pro feature — Get Pro in Settings."}
-              </p>
+            <div className="flex items-start gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                <Sparkles className="size-4" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                  Repeat billing, handled
+                  {!serverPro ? (
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
+                      Pro
+                    </span>
+                  ) : null}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {serverPro
+                    ? "We’ll draft the next invoice for you, automatically."
+                    : <>Unlock automatic repeat invoices — <Link to="/app/settings" search={{ pro: undefined }} className="font-medium text-primary underline underline-offset-4">Get Pro</Link>.</>}
+                </p>
+              </div>
             </div>
             <Switch
               checked={Boolean(invoice.recurrence?.enabled)}
-              disabled={!settings.isPro}
+              disabled={!serverPro}
               onCheckedChange={(enabled) =>
                 patch({
                   recurrence: {
@@ -581,7 +753,7 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
               }
             />
           </div>
-          {settings.isPro && invoice.recurrence?.enabled ? (
+          {serverPro && invoice.recurrence?.enabled ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <Field label="Frequency">
                 <select
@@ -627,81 +799,8 @@ export function InvoiceEditor({ invoiceId }: { invoiceId?: string }) {
           ) : null}
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-          <Button className="w-full sm:w-auto" onClick={() => void onSave()} disabled={busy !== null}>
-            {busy === "save" ? <Loader2 className="animate-spin" /> : null}
-            Save
-          </Button>
-          <Button
-            className="w-full sm:w-auto"
-            variant="outline"
-            onClick={() => void onCopyLink()}
-            disabled={busy !== null}
-            title="Save, publish, then copy the public link"
-          >
-            {busy === "link" ? <Loader2 className="animate-spin" /> : <Copy />}
-            Copy link
-          </Button>
-          <Button
-            className="w-full sm:w-auto"
-            variant="outline"
-            onClick={() => void onShareWhatsApp()}
-            disabled={busy !== null}
-            title="Save, publish, then open WhatsApp share"
-          >
-            {busy === "link" ? <Loader2 className="animate-spin" /> : null}
-            WhatsApp
-          </Button>
-          <Button
-            className="w-full sm:w-auto"
-            variant="outline"
-            onClick={() => void onShareEmail()}
-            disabled={busy !== null}
-            title="Save, publish, then open email share"
-          >
-            {busy === "link" ? <Loader2 className="animate-spin" /> : null}
-            Email
-          </Button>
-          <Button className="w-full sm:w-auto" variant="outline" onClick={() => void onPdf()} disabled={busy !== null}>
-            {busy === "pdf" ? <Loader2 className="animate-spin" /> : <Download />}
-            PDF
-          </Button>
-          <Button className="w-full sm:w-auto" onClick={() => void onGetPaid()} disabled={busy !== null}>
-            {busy === "pay" ? <Loader2 className="animate-spin" /> : <Wallet />}
-            Get paid
-          </Button>
-        </div>
-        {publishError ? (
-          <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
-            {publishError}
-          </p>
-        ) : null}
-
-        <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Invoice status">
-          {(
-            [
-              { value: "draft", label: "Draft" },
-              { value: "sent", label: "Sent" },
-              { value: "paid", label: "Paid" },
-            ] as const
-          ).map((s) => (
-            <Button
-              key={s.value}
-              variant={invoice.status === s.value ? "default" : "secondary"}
-              size="sm"
-              aria-pressed={invoice.status === s.value}
-              onClick={() => void setStatus(s.value)}
-            >
-              {s.label}
-              {invoice.status === s.value ? " •" : ""}
-            </Button>
-          ))}
-        </div>
-        <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Link2 className="size-3.5" /> Auto-saves locally. Save / copy link / get paid publishes a public page.
-        </p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Payment goes directly to your UPI, bank, or PayPal account. Mark as paid after you receive the money; Razorpay is optional.
+        <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Link2 className="size-3.5" /> Auto-saves locally. Save, copy link, or get paid publishes a public page — money goes directly to your accounts.
         </p>
       </section>
 

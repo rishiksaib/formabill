@@ -1,12 +1,10 @@
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Navigate } from "@tanstack/react-router";
-import { GROK_PROVIDERS, authEnabled, signIn, signOut } from "./client";
-import { hasGateSessionMarker } from "./gate-session-marker";
+import { Chrome, Loader2, LogIn, Twitter } from "lucide-react";
+import { toast } from "sonner";
+import { GROK_PROVIDERS, signIn } from "./client";
 import { resolveSignInGateState } from "./sign-in-gate";
-import { useCurrentUser, useCurrentUserState } from "./use-current-user";
-
-const subscribeToNothing = () => () => {};
-const noGateSessionOnServer = () => false;
+import { useCurrentUserState } from "./use-current-user";
 
 /**
  * Auth state components — plain wrappers around `useCurrentUserState()`.
@@ -63,71 +61,47 @@ export function SignInGate({
   return <>{fallback ?? <SignInButtons />}</>;
 }
 
-export function SignInButtons() {
-  return (
-    <div className="flex w-full max-w-sm flex-col gap-2">
-      {GROK_PROVIDERS.map((p) => (
-        <button
-          key={p.providerId}
-          type="button"
-          onClick={() => signIn(p.providerId, { callbackURL: "/" })}
-          className="w-full cursor-pointer rounded-md border border-neutral-300 px-4 py-2 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
-        >
-          Continue with {p.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+const PROVIDER_ICONS = {
+  "grok-google": Chrome,
+  "grok-x": Twitter,
+} as const;
 
 /**
- * Minimal signed-in identity chip + sign-out. Restyle freely (see the
- * `design-ui` skill). Sign-out is only shown when auth is enabled (the
- * disabled-auth dev user has nothing to sign out of) and the session is not
- * gate-materialized — behind the gate the next request signs the viewer
- * straight back in, so a sign-out control there is a broken loop.
+ * One working OAuth button per configured upstream. Render only when the
+ * server reports `oauth: true` (`/api/auth-status`) — each button starts the
+ * real broker flow, never a dead end.
  */
-export function UserButton() {
-  const user = useCurrentUser();
-  // Sign-out can take a moment (and can fail when deployed), so the control
-  // shows it is working and cannot be fired twice.
-  const [signingOut, setSigningOut] = useState(false);
-  const gateSession = useSyncExternalStore(
-    subscribeToNothing,
-    hasGateSessionMarker,
-    noGateSessionOnServer,
-  );
-  // Don't render for dev fallback user (auth not configured)
-  if (!user || user.isDevFallback) return null;
-  const label = user.displayName ?? user.primaryEmail ?? "Account";
+export function SignInButtons() {
+  const [busy, setBusy] = useState<string | null>(null);
   return (
-    <div className="flex items-center gap-2">
-      {user.profileImageUrl ? (
-        <img
-          src={user.profileImageUrl}
-          alt=""
-          className="h-8 w-8 rounded-full object-cover"
-        />
-      ) : (
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-black/10 text-sm font-medium dark:bg-white/20">
-          {label.charAt(0).toUpperCase()}
-        </span>
-      )}
-      <span className="text-sm font-medium">{label}</span>
-      {authEnabled && !gateSession && (
-        <button
-          type="button"
-          disabled={signingOut}
-          onClick={() => {
-            setSigningOut(true);
-            // Success navigates away; on failure re-enable so it can be retried.
-            void signOut().catch(() => setSigningOut(false));
-          }}
-          className="cursor-pointer text-sm underline-offset-4 opacity-70 hover:underline disabled:cursor-wait disabled:no-underline"
-        >
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-      )}
+    <div className="grid w-full gap-2">
+      {GROK_PROVIDERS.map((p) => {
+        const Icon = PROVIDER_ICONS[p.providerId as keyof typeof PROVIDER_ICONS] ?? LogIn;
+        const loading = busy === p.providerId;
+        return (
+          <button
+            key={p.providerId}
+            type="button"
+            disabled={busy !== null}
+            onClick={() => {
+              setBusy(p.providerId);
+              void signIn(p.providerId, { callbackURL: "/" })
+                .catch((error) => {
+                  toast.error(error instanceof Error ? error.message : "Sign-in failed");
+                })
+                .finally(() => setBusy(null));
+            }}
+            className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary/70 disabled:cursor-wait disabled:opacity-60"
+          >
+            {loading ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Icon className="size-4" aria-hidden="true" />
+            )}
+            {loading ? `Connecting to ${p.label}…` : `Continue with ${p.label}`}
+          </button>
+        );
+      })}
     </div>
   );
 }

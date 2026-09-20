@@ -38,11 +38,18 @@ npm run dev
 
 The preview listens on port 8080.
 
+### Password reset
+
+Login → **Forgot password?** sends a one-hour, single-use reset link via Better Auth (`/forgot-password` → email → `/reset-password?token=…`). Tokens expire after `resetPasswordTokenExpiresIn: 3600` seconds and are consumed on use; bad/expired links get a clear “request a fresh one” message. Requires the `SMTP_*` variables above.
+
 ### Accounts and quota
 
-FormaBill uses Better Auth email/password accounts for the MVP. Anonymous users
-can create local IndexedDB drafts and publish/share anonymous invoices. Signing
-in enables server ownership, sync, payment-link creation, and quota tracking.
+FormaBill uses Better Auth email/password accounts for the MVP (`/login`; Google/X
+buttons appear only when the broker is actually reachable — see `/api/auth-status`).
+Anonymous users can create local IndexedDB drafts and publish/share anonymous invoices.
+Signing in enables server ownership, sync, per-user quota tracking, and Pro checkout —
+**Get Pro requires sign-in** so the webhook can activate your own user record. Pro status
+is stored server-side on the user row; anonymous invoice flows never ask for sign-in.
 Published invoices
 are tagged with the verified Better Auth `userId`; the server allows five new
 invoices per calendar month on the free tier. The Better Auth user record has a
@@ -77,6 +84,7 @@ RAZORPAY_PLATFORM_WEBHOOK_SECRET=
 - `RAZORPAY_WEBHOOK_SECRET`: server-only secret used to verify `payment_link.paid` webhooks.
 - `RAZORPAY_PLATFORM_KEY_ID`, `RAZORPAY_PLATFORM_KEY_SECRET`: FormaBill merchant test/live credentials for the Pro subscription.
 - `RAZORPAY_PLATFORM_WEBHOOK_SECRET`: separate webhook secret for the FormaBill Pro webhook.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`: SMTP settings for auth emails (password reset). Without all five, “Forgot password?” explains email isn’t configured instead of pretending to send.
 
 Razorpay keys are optional. Manual UPI, PayPal, and bank payment details work without them. Never commit secrets or put them in client-side `VITE_` variables.
 
@@ -173,7 +181,35 @@ RAZORPAY_PLATFORM_WEBHOOK_SECRET=xxxxxxxxxxxx  # verifies /api/webhooks/razorpay
 NEXT_PUBLIC_APP_URL=https://your-app.example   # checkout return + callback origin
 ```
 
-These platform credentials are for FormaBill’s merchant account. They must never be confused with `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`, which are user-provided credentials for collecting that user’s client invoice payments. In production there is no Pro toggle — the development preview switch only renders in dev builds.
+These platform credentials are for FormaBill’s merchant account. They must never be confused with `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`, which are user-provided credentials for collecting that user’s client invoice payments. Pro status always comes from the server — there is no local preview toggle anywhere, in any build.
+
+### Lifetime Pro (founder / test accounts)
+
+Some users are Pro forever without a subscription: a permanent `isLifetimePro` flag on the user row, or a server-only email allowlist. Both flow through the same Pro check, so lifetime users bypass invoice limits, see the Pro badge, and can use MCP. No email is hardcoded anywhere in the frontend.
+
+- **Automatic (recommended for the founder):** set the server env var before starting the app —
+  `LIFETIME_PRO_EMAILS="rishiksaibandari@gmail.com"` (comma-separated for several). Anyone listed is lifetime Pro on every backend, including local dev.
+- **Manual flag (production database):** first have the person sign up (so the user row exists), then run —
+  `npm run grant:lifetime-pro -- user@example.com`
+  (needs `DATABASE_URL`; revoke with `--revoke`). Raw SQL equivalent:
+  `update "user" set "isLifetimePro" = true where lower("email") = lower('user@example.com');`
+- **Local testing:** the grant script cannot reach the dev server's in-memory database, so use `LIFETIME_PRO_EMAILS="test@example.com" npm run dev` and sign up with that address.
+
+The Settings badge reads “Pro active · Lifetime” for these users.
+
+## AI / MCP (Pro)
+
+Pro users can connect any MCP-compatible assistant (Claude Desktop, Cursor, Grok, Windsurf) to act on their account. Settings → **AI / MCP** generates personal access tokens (`fbm_…`, SHA-256 hashed at rest, shown once) and shows per-client connection steps for the Streamable-HTTP endpoint `https://<host>/api/mcp` with an `Authorization: Bearer <token>` header.
+
+Exposed tools: `list_invoices`, `get_invoice`, `create_invoice`, `update_invoice`, `mark_invoice_paid`, `create_payment_link`, `list_clients`, `create_client`, `get_studio_settings`, `update_studio_settings`. Every call is authenticated per token, attributed to that token’s user, requires Pro on every request (downgraded users get 403), and is rate-limited (100/min per token). Free users see an upgrade prompt instead of token controls. No extra env vars — the endpoint, token APIs, and `mcp_tokens` / `studio_settings` / `mcp_clients` tables ship with the app.
+
+## Gift codes & referrals (Pro)
+
+**Gift codes** let Pro (and lifetime Pro) users give time-boxed Pro to anyone. Settings → **Gift codes**: pick 1, 3, 6, or 12 months — capped at your own plan length (1-month plan → 1-month codes only; yearly or lifetime → any). Codes look like `PRO-XXXX-XXXX`, are single-use, expire 90 days after creation, and grant Pro for exactly their duration, stacked on any remaining grant. The recipient pastes the code in the same Settings section (Redeem works for any signed-in user, including free ones); you can’t redeem your own code. Creation is throttled (20/min, max 20 live unused codes) to prevent farming.
+
+**Referrals**: every signed-in user has a link (`/?ref=CODE`, auto-captured on landing) with signup/Pro/months-earned stats in Settings → **Referrals**. When an invitee becomes Pro by paying or redeeming a gift, the referrer gets +1 free month, stacked — once per invitee. Self-referral, double attribution, and lifetime/env grants never pay out.
+
+Time-boxed Pro lives in the `proExpiresAt` user column (`getUserPlan` treats unexpired grants as Pro everywhere: limits, MCP, badges). Tables: `gift_codes`, `referral_codes`, `referrals`.
 
 ## Out of scope (v1)
 

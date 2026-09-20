@@ -7787,542 +7787,6 @@ function toKebabCase(input) {
 	return splitWords(input).map((word) => word.toLowerCase()).join("-");
 }
 //#endregion
-//#region node_modules/@better-auth/core/dist/utils/url.mjs
-/**
-* Normalizes a request pathname by removing the basePath prefix and trailing slashes.
-* This is useful for matching paths against configured path lists.
-*
-* @param requestUrl - The full request URL
-* @param basePath - The base path of the auth API (e.g., "/api/auth")
-* @returns The normalized path without basePath prefix or trailing slashes,
-*          or "/" if URL parsing fails
-*
-* @example
-* normalizePathname("http://localhost:3000/api/auth/sso/saml2/callback/provider1", "/api/auth")
-* // Returns: "/sso/saml2/callback/provider1"
-*
-* normalizePathname("http://localhost:3000/sso/saml2/callback/provider1/", "/")
-* // Returns: "/sso/saml2/callback/provider1"
-*/
-function normalizePathname(requestUrl, basePath) {
-	let pathname;
-	try {
-		pathname = new URL(requestUrl).pathname.replace(/\/+$/, "") || "/";
-	} catch {
-		return "/";
-	}
-	const normalizedBasePath = basePath.replace(/\/+$/, "");
-	if (normalizedBasePath === "") return pathname;
-	if (pathname === normalizedBasePath) return "/";
-	if (pathname.startsWith(normalizedBasePath + "/")) return pathname.slice(normalizedBasePath.length).replace(/\/+$/, "") || "/";
-	return pathname;
-}
-/**
-* Schemes that execute or embed code when navigated to or accepted as a
-* redirect target. These are never safe as an OAuth `redirect_uri` or as a
-* client-side navigation target (`window.location.href`, `location.assign`, ...).
-*/
-var DANGEROUS_URL_SCHEMES = [
-	"javascript:",
-	"data:",
-	"vbscript:"
-];
-/**
-* Returns `false` only when `value` is an absolute URL using a dangerous scheme
-* (`javascript:`, `data:`, `vbscript:`). Relative URLs (e.g. `/dashboard`) and
-* safe absolute schemes (`http`, `https`, custom app schemes such as
-* `myapp://`) return `true`.
-*
-* Use this to guard browser navigation sinks and any redirect target that may
-* originate from untrusted input. It is intentionally narrow: it blocks code
-* execution schemes without rejecting relative paths or mobile deep links.
-*/
-function isSafeUrlScheme(value) {
-	let parsed;
-	try {
-		parsed = new URL(value);
-	} catch {
-		return true;
-	}
-	return !DANGEROUS_URL_SCHEMES.includes(parsed.protocol);
-}
-//#endregion
-//#region node_modules/@better-fetch/fetch/dist/index.js
-var __defProp = Object.defineProperty;
-var __defProps = Object.defineProperties;
-var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
-var __getOwnPropSymbols = Object.getOwnPropertySymbols;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __propIsEnum = Object.prototype.propertyIsEnumerable;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, {
-	enumerable: true,
-	configurable: true,
-	writable: true,
-	value
-}) : obj[key] = value;
-var __spreadValues = (a, b) => {
-	for (var prop in b || (b = {})) if (__hasOwnProp.call(b, prop)) __defNormalProp(a, prop, b[prop]);
-	if (__getOwnPropSymbols) {
-		for (var prop of __getOwnPropSymbols(b)) if (__propIsEnum.call(b, prop)) __defNormalProp(a, prop, b[prop]);
-	}
-	return a;
-};
-var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
-var BetterFetchError = class extends Error {
-	constructor(status, statusText, error) {
-		super(statusText || status.toString(), { cause: error });
-		this.status = status;
-		this.statusText = statusText;
-		this.error = error;
-		Error.captureStackTrace(this, this.constructor);
-	}
-};
-var initializePlugins = async (url, options) => {
-	var _a, _b, _c, _d, _e, _f;
-	let opts = options || {};
-	const hooks = {
-		onRequest: [options == null ? void 0 : options.onRequest],
-		onResponse: [options == null ? void 0 : options.onResponse],
-		onSuccess: [options == null ? void 0 : options.onSuccess],
-		onError: [options == null ? void 0 : options.onError],
-		onRetry: [options == null ? void 0 : options.onRetry]
-	};
-	if (!options || !(options == null ? void 0 : options.plugins)) return {
-		url,
-		options: opts,
-		hooks
-	};
-	for (const plugin of (options == null ? void 0 : options.plugins) || []) {
-		if (plugin.init) {
-			const pluginRes = await ((_a = plugin.init) == null ? void 0 : _a.call(plugin, url.toString(), options));
-			opts = pluginRes.options || opts;
-			url = pluginRes.url;
-		}
-		hooks.onRequest.push((_b = plugin.hooks) == null ? void 0 : _b.onRequest);
-		hooks.onResponse.push((_c = plugin.hooks) == null ? void 0 : _c.onResponse);
-		hooks.onSuccess.push((_d = plugin.hooks) == null ? void 0 : _d.onSuccess);
-		hooks.onError.push((_e = plugin.hooks) == null ? void 0 : _e.onError);
-		hooks.onRetry.push((_f = plugin.hooks) == null ? void 0 : _f.onRetry);
-	}
-	return {
-		url,
-		options: opts,
-		hooks
-	};
-};
-var LinearRetryStrategy = class {
-	constructor(options) {
-		this.options = options;
-	}
-	shouldAttemptRetry(attempt, response) {
-		if (this.options.shouldRetry) return Promise.resolve(attempt < this.options.attempts && this.options.shouldRetry(response));
-		return Promise.resolve(attempt < this.options.attempts);
-	}
-	getDelay() {
-		return this.options.delay;
-	}
-};
-var ExponentialRetryStrategy = class {
-	constructor(options) {
-		this.options = options;
-	}
-	shouldAttemptRetry(attempt, response) {
-		if (this.options.shouldRetry) return Promise.resolve(attempt < this.options.attempts && this.options.shouldRetry(response));
-		return Promise.resolve(attempt < this.options.attempts);
-	}
-	getDelay(attempt) {
-		return Math.min(this.options.maxDelay, this.options.baseDelay * 2 ** attempt);
-	}
-};
-function createRetryStrategy(options) {
-	if (typeof options === "number") return new LinearRetryStrategy({
-		type: "linear",
-		attempts: options,
-		delay: 1e3
-	});
-	switch (options.type) {
-		case "linear": return new LinearRetryStrategy(options);
-		case "exponential": return new ExponentialRetryStrategy(options);
-		default: throw new Error("Invalid retry strategy");
-	}
-}
-var getAuthHeader = async (options) => {
-	const headers = {};
-	const getValue = async (value) => typeof value === "function" ? await value() : value;
-	if (options == null ? void 0 : options.auth) {
-		if (options.auth.type === "Bearer") {
-			const token = await getValue(options.auth.token);
-			if (!token) return headers;
-			headers["authorization"] = `Bearer ${token}`;
-		} else if (options.auth.type === "Basic") {
-			const [username, password] = await Promise.all([getValue(options.auth.username), getValue(options.auth.password)]);
-			if (!username || !password) return headers;
-			headers["authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
-		} else if (options.auth.type === "Custom") {
-			const [prefix, value] = await Promise.all([getValue(options.auth.prefix), getValue(options.auth.value)]);
-			if (!value) return headers;
-			headers["authorization"] = `${prefix != null ? prefix : ""} ${value}`;
-		}
-	}
-	return headers;
-};
-var JSON_RE = /^application\/(?:[\w!#$%&*.^`~-]*\+)?json(;.+)?$/i;
-function detectResponseType(request) {
-	const _contentType = request.headers.get("content-type");
-	const textTypes = /* @__PURE__ */ new Set([
-		"image/svg",
-		"application/xml",
-		"application/xhtml",
-		"application/html"
-	]);
-	if (!_contentType) return "json";
-	const contentType = _contentType.split(";").shift() || "";
-	if (JSON_RE.test(contentType)) return "json";
-	if (textTypes.has(contentType) || contentType.startsWith("text/")) return "text";
-	return "blob";
-}
-function isJSONParsable(value) {
-	try {
-		JSON.parse(value);
-		return true;
-	} catch (error) {
-		return false;
-	}
-}
-function isJSONSerializable$1(value) {
-	if (value === void 0) return false;
-	const t = typeof value;
-	if (t === "string" || t === "number" || t === "boolean" || t === null) return true;
-	if (t !== "object") return false;
-	if (Array.isArray(value)) return true;
-	if (value.buffer) return false;
-	return value.constructor && value.constructor.name === "Object" || typeof value.toJSON === "function";
-}
-function jsonParse(text) {
-	try {
-		return JSON.parse(text);
-	} catch (error) {
-		return text;
-	}
-}
-function isFunction(value) {
-	return typeof value === "function";
-}
-function getFetch(options) {
-	if (options == null ? void 0 : options.customFetchImpl) return options.customFetchImpl;
-	if (typeof globalThis !== "undefined" && isFunction(globalThis.fetch)) return globalThis.fetch;
-	if (typeof window !== "undefined" && isFunction(window.fetch)) return window.fetch;
-	throw new Error("No fetch implementation found");
-}
-function mergeHeaders(...sources) {
-	const merged = {};
-	for (const source of sources) {
-		if (!source) continue;
-		if (source instanceof Headers) source.forEach((value, key) => {
-			merged[key] = value;
-		});
-		else {
-			const entries = Array.isArray(source) ? source : Object.entries(source);
-			for (const [key, value] of entries) if (value !== null && value !== void 0) merged[key] = value;
-		}
-	}
-	return merged;
-}
-async function getHeaders(opts) {
-	const headers = new Headers(mergeHeaders(opts == null ? void 0 : opts.headers, await getAuthHeader(opts)));
-	if (!headers.has("content-type")) {
-		const contentType = detectContentType(opts == null ? void 0 : opts.body);
-		if (contentType) headers.set("content-type", contentType);
-	}
-	return headers;
-}
-function detectContentType(body) {
-	if (isJSONSerializable$1(body)) return "application/json";
-	return null;
-}
-function getMediaType(headers) {
-	const contentType = headers.get("content-type");
-	return contentType ? contentType.split(";")[0].trim().toLowerCase() : null;
-}
-function getBody$1(options, headers) {
-	const { body } = options;
-	if (!body) return null;
-	if (!isJSONSerializable$1(body)) return body;
-	if (typeof body === "string") return body;
-	if (getMediaType(headers) === "application/x-www-form-urlencoded") return new URLSearchParams(body).toString();
-	return JSON.stringify(body);
-}
-function getMethod(url, options) {
-	var _a;
-	if (options == null ? void 0 : options.method) return options.method.toUpperCase();
-	if (url.startsWith("@")) {
-		const pMethod = (_a = url.split("@")[1]) == null ? void 0 : _a.split("/")[0];
-		if (!methods.includes(pMethod)) return (options == null ? void 0 : options.body) ? "POST" : "GET";
-		return pMethod.toUpperCase();
-	}
-	return (options == null ? void 0 : options.body) ? "POST" : "GET";
-}
-function getTimeout(options, controller) {
-	let abortTimeout;
-	if (!(options == null ? void 0 : options.signal) && (options == null ? void 0 : options.timeout)) abortTimeout = setTimeout(() => controller == null ? void 0 : controller.abort(), options == null ? void 0 : options.timeout);
-	return {
-		abortTimeout,
-		clearTimeout: () => {
-			if (abortTimeout) clearTimeout(abortTimeout);
-		}
-	};
-}
-var ValidationError = class _ValidationError extends Error {
-	constructor(issues, message) {
-		super(message || JSON.stringify(issues, null, 2));
-		this.issues = issues;
-		Object.setPrototypeOf(this, _ValidationError.prototype);
-	}
-};
-async function parseStandardSchema(schema, input) {
-	const result = await schema["~standard"].validate(input);
-	if (result.issues) throw new ValidationError(result.issues);
-	return result.value;
-}
-var methods = [
-	"get",
-	"post",
-	"put",
-	"patch",
-	"delete"
-];
-var applySchemaPlugin = (config) => ({
-	id: "apply-schema",
-	name: "Apply Schema",
-	version: "1.0.0",
-	async init(url, options) {
-		var _a, _b, _c, _d;
-		const schema = ((_b = (_a = config.plugins) == null ? void 0 : _a.find((plugin) => {
-			var _a2;
-			return ((_a2 = plugin.schema) == null ? void 0 : _a2.config) ? url.startsWith(plugin.schema.config.baseURL || "") || url.startsWith(plugin.schema.config.prefix || "") : false;
-		})) == null ? void 0 : _b.schema) || config.schema;
-		if (schema) {
-			let urlKey = url;
-			if ((_c = schema.config) == null ? void 0 : _c.prefix) {
-				if (urlKey.startsWith(schema.config.prefix)) {
-					urlKey = urlKey.replace(schema.config.prefix, "");
-					if (schema.config.baseURL) url = url.replace(schema.config.prefix, schema.config.baseURL);
-				}
-			}
-			if ((_d = schema.config) == null ? void 0 : _d.baseURL) {
-				if (urlKey.startsWith(schema.config.baseURL)) urlKey = urlKey.replace(schema.config.baseURL, "");
-			}
-			if (urlKey.startsWith("/") && urlKey.charAt(1) === "@") urlKey = urlKey.substring(1);
-			const keySchema = schema.schema[urlKey];
-			if (keySchema) {
-				let validatedHeaders = options == null ? void 0 : options.headers;
-				if (keySchema.headers && !(options == null ? void 0 : options.disableValidation)) {
-					const normalizedHeaders = {};
-					if (options == null ? void 0 : options.headers) {
-						if (options.headers instanceof Headers) options.headers.forEach((value, key) => {
-							normalizedHeaders[key.toLowerCase()] = value;
-						});
-						else if (typeof options.headers === "object") {
-							for (const [key, value] of Object.entries(options.headers)) if (value !== null && value !== void 0) normalizedHeaders[key.toLowerCase()] = value;
-						}
-					}
-					const validated = await parseStandardSchema(keySchema.headers, normalizedHeaders);
-					const finalHeaders = {};
-					for (const [key, value] of Object.entries(validated)) finalHeaders[key.toLowerCase()] = value;
-					validatedHeaders = finalHeaders;
-				}
-				let opts = __spreadProps(__spreadValues({}, options), {
-					method: keySchema.method,
-					output: keySchema.output,
-					headers: validatedHeaders
-				});
-				if (!(options == null ? void 0 : options.disableValidation)) opts = __spreadProps(__spreadValues({}, opts), {
-					body: keySchema.input ? await parseStandardSchema(keySchema.input, options == null ? void 0 : options.body) : options == null ? void 0 : options.body,
-					params: keySchema.params ? await parseStandardSchema(keySchema.params, options == null ? void 0 : options.params) : options == null ? void 0 : options.params,
-					query: keySchema.query ? await parseStandardSchema(keySchema.query, options == null ? void 0 : options.query) : options == null ? void 0 : options.query
-				});
-				return {
-					url,
-					options: opts
-				};
-			}
-		}
-		return {
-			url,
-			options
-		};
-	}
-});
-var createFetch = (config) => {
-	async function $fetch(url, options) {
-		const opts = __spreadProps(__spreadValues(__spreadValues({}, config), options), {
-			headers: mergeHeaders(config == null ? void 0 : config.headers, options == null ? void 0 : options.headers),
-			plugins: [
-				...(config == null ? void 0 : config.plugins) || [],
-				applySchemaPlugin(config || {}),
-				...(options == null ? void 0 : options.plugins) || []
-			]
-		});
-		if (config == null ? void 0 : config.catchAllError) try {
-			return await betterFetch(url, opts);
-		} catch (error) {
-			return {
-				data: null,
-				error: {
-					status: 500,
-					statusText: "Fetch Error",
-					message: "Fetch related error. Captured by catchAllError option. See error property for more details.",
-					error
-				}
-			};
-		}
-		return await betterFetch(url, opts);
-	}
-	return $fetch;
-};
-var isReservedPathSegment = (value) => value === "." || value === "..";
-function encodePathSegment(segment, pathParams) {
-	let pathSegment = segment;
-	for (const [key, value] of pathParams) pathSegment = pathSegment.replace(key, value);
-	if (isReservedPathSegment(pathSegment)) throw new TypeError("Path parameters cannot be reserved path segments");
-	return encodeURIComponent(pathSegment);
-}
-function getURL2(url, option) {
-	const { baseURL, params, query } = option || {
-		query: {},
-		params: {},
-		baseURL: ""
-	};
-	let basePath = url.startsWith("http") ? url.split("/").slice(0, 3).join("/") : baseURL || "";
-	if (url.startsWith("@")) {
-		const m = url.toString().split("@")[1].split("/")[0];
-		if (methods.includes(m)) url = url.replace(`@${m}/`, "/");
-	}
-	if (!basePath.endsWith("/")) basePath += "/";
-	let [path, urlQuery] = url.replace(basePath, "").split("?");
-	const queryParams = new URLSearchParams(urlQuery);
-	for (const [key, value] of Object.entries(query || {})) {
-		if (value == null) continue;
-		let serializedValue;
-		if (typeof value === "string") serializedValue = value;
-		else if (Array.isArray(value)) {
-			for (const val of value) queryParams.append(key, val);
-			continue;
-		} else serializedValue = JSON.stringify(value);
-		queryParams.set(key, serializedValue);
-	}
-	const pathParams = /* @__PURE__ */ new Map();
-	if (params) {
-		if (Array.isArray(params)) {
-			const paramPaths = path.split("/").filter((p) => p.startsWith(":"));
-			for (const [index, key] of paramPaths.entries()) {
-				const value = params[index];
-				pathParams.set(key, String(value));
-			}
-		} else for (const [key, value] of Object.entries(params)) pathParams.set(`:${key}`, String(value));
-	}
-	path = path.split("/").map((segment) => encodePathSegment(segment, pathParams)).join("/");
-	path = path.replace(/^\/+/, "");
-	let queryParamString = queryParams.toString();
-	queryParamString = queryParamString.length > 0 ? `?${queryParamString}`.replace(/\+/g, "%20") : "";
-	if (!basePath.startsWith("http")) return `${basePath}${path}${queryParamString}`;
-	return new URL(`${path}${queryParamString}`, basePath);
-}
-var betterFetch = async (url, options) => {
-	var _a, _b, _c, _d, _e, _f, _g, _h;
-	const { hooks, url: __url, options: opts } = await initializePlugins(url, options);
-	const fetch = getFetch(opts);
-	const controller = new AbortController();
-	const signal = (_a = opts.signal) != null ? _a : controller.signal;
-	const _url = getURL2(__url, opts);
-	const headers = await getHeaders(opts);
-	const body = getBody$1(opts, headers);
-	const method = getMethod(__url, opts);
-	const context = __spreadProps(__spreadValues({}, opts), {
-		url: _url,
-		headers,
-		body,
-		method,
-		signal
-	});
-	for (const onRequest of hooks.onRequest) if (onRequest) {
-		const res = await onRequest(context);
-		if (typeof res === "object" && res !== null) Object.assign(context, res);
-	}
-	if ("pipeTo" in context && typeof context.pipeTo === "function" || typeof ((_b = options == null ? void 0 : options.body) == null ? void 0 : _b.pipe) === "function") {
-		if (!("duplex" in context)) context.duplex = "half";
-	}
-	const { clearTimeout: clearTimeout2 } = getTimeout(opts, controller);
-	let response = await fetch(context.url, context);
-	clearTimeout2();
-	const responseContext = {
-		response,
-		request: context
-	};
-	for (const onResponse of hooks.onResponse) if (onResponse) {
-		const r = await onResponse(__spreadProps(__spreadValues({}, responseContext), { response: ((_c = options == null ? void 0 : options.hookOptions) == null ? void 0 : _c.cloneResponse) ? response.clone() : response }));
-		if (r instanceof Response) response = r;
-		else if (typeof r === "object" && r !== null) response = r.response;
-	}
-	if (response.ok) {
-		if (!(context.method !== "HEAD")) return {
-			data: "",
-			error: null
-		};
-		const responseType = detectResponseType(response);
-		const successContext = {
-			data: null,
-			response,
-			request: context
-		};
-		if (responseType === "json" || responseType === "text") {
-			const text = await response.text();
-			successContext.data = await ((_d = context.jsonParser) != null ? _d : jsonParse)(text);
-		} else successContext.data = await response[responseType]();
-		if (context == null ? void 0 : context.output) {
-			if (context.output && !context.disableValidation) successContext.data = await parseStandardSchema(context.output, successContext.data);
-		}
-		for (const onSuccess of hooks.onSuccess) if (onSuccess) await onSuccess(__spreadProps(__spreadValues({}, successContext), { response: ((_e = options == null ? void 0 : options.hookOptions) == null ? void 0 : _e.cloneResponse) ? response.clone() : response }));
-		if (options == null ? void 0 : options.throw) return successContext.data;
-		return {
-			data: successContext.data,
-			error: null
-		};
-	}
-	const parser = (_f = options == null ? void 0 : options.jsonParser) != null ? _f : jsonParse;
-	const responseText = await response.text();
-	const isJSONResponse = isJSONParsable(responseText);
-	const errorObject = isJSONResponse ? await parser(responseText) : null;
-	const errorContext = {
-		response,
-		responseText,
-		request: context,
-		error: __spreadProps(__spreadValues({}, errorObject), {
-			status: response.status,
-			statusText: response.statusText
-		})
-	};
-	for (const onError of hooks.onError) if (onError) await onError(__spreadProps(__spreadValues({}, errorContext), { response: ((_g = options == null ? void 0 : options.hookOptions) == null ? void 0 : _g.cloneResponse) ? response.clone() : response }));
-	if (options == null ? void 0 : options.retry) {
-		const retryStrategy = createRetryStrategy(options.retry);
-		const _retryAttempt = (_h = options.retryAttempt) != null ? _h : 0;
-		if (await retryStrategy.shouldAttemptRetry(_retryAttempt, response)) {
-			for (const onRetry of hooks.onRetry) if (onRetry) await onRetry(responseContext);
-			const delay = retryStrategy.getDelay(_retryAttempt);
-			await new Promise((resolve) => setTimeout(resolve, delay));
-			return await betterFetch(url, __spreadProps(__spreadValues({}, options), { retryAttempt: _retryAttempt + 1 }));
-		}
-	}
-	if (options == null ? void 0 : options.throw) throw new BetterFetchError(response.status, response.statusText, isJSONResponse ? errorObject : responseText);
-	return {
-		data: null,
-		error: __spreadProps(__spreadValues({}, errorObject), {
-			status: response.status,
-			statusText: response.statusText
-		})
-	};
-};
-//#endregion
 //#region node_modules/zod/v4/core/util.js
 function getEnumValues(entries) {
 	const numericValues = Object.values(entries).filter((v) => typeof v === "number");
@@ -14939,7 +14403,7 @@ var signCookieValue = async (value, secret) => {
 //#endregion
 //#region node_modules/better-call/dist/utils.mjs
 var jsonContentTypeRegex = /^application\/([a-z0-9.+-]*\+)?json/i;
-async function getBody(request, allowedMediaTypes) {
+async function getBody$1(request, allowedMediaTypes) {
 	const contentType = request.headers.get("content-type") || "";
 	const normalizedContentType = contentType.toLowerCase();
 	if (!request.body) return;
@@ -15249,7 +14713,7 @@ var createInternalContext = async (context, { options, path }) => {
 };
 //#endregion
 //#region node_modules/better-call/dist/to-response.mjs
-function isJSONSerializable(value) {
+function isJSONSerializable$1(value) {
 	if (value === void 0) return false;
 	const t = typeof value;
 	if (t === "string" || t === "number" || t === "boolean" || t === null) return true;
@@ -15398,7 +14862,7 @@ function toResponse(data, init) {
 	} else if (data instanceof ReadableStream) {
 		body = data;
 		headers.set("Content-Type", "application/octet-stream");
-	} else if (isJSONSerializable(data)) {
+	} else if (isJSONSerializable$1(data)) {
 		body = safeStringify(data);
 		headers.set("Content-Type", "application/json");
 	}
@@ -16183,7 +15647,7 @@ var createRouter$1 = (endpoints, config) => {
 				headers: request.headers,
 				params: route.params ? { ...route.params } : {},
 				request,
-				body: handler.options.disableBody ? void 0 : await getBody(handler.options.cloneRequest ? request.clone() : request, allowedMediaTypes),
+				body: handler.options.disableBody ? void 0 : await getBody$1(handler.options.cloneRequest ? request.clone() : request, allowedMediaTypes),
 				query,
 				_flag: "router",
 				asResponse: true,
@@ -16377,6 +15841,66 @@ function withServerOnly(options) {
 * ```
 */
 createAuthEndpoint.serverOnly = (options, handler) => createAuthEndpoint(withServerOnly(options), handler);
+//#endregion
+//#region node_modules/@better-auth/core/dist/utils/url.mjs
+/**
+* Normalizes a request pathname by removing the basePath prefix and trailing slashes.
+* This is useful for matching paths against configured path lists.
+*
+* @param requestUrl - The full request URL
+* @param basePath - The base path of the auth API (e.g., "/api/auth")
+* @returns The normalized path without basePath prefix or trailing slashes,
+*          or "/" if URL parsing fails
+*
+* @example
+* normalizePathname("http://localhost:3000/api/auth/sso/saml2/callback/provider1", "/api/auth")
+* // Returns: "/sso/saml2/callback/provider1"
+*
+* normalizePathname("http://localhost:3000/sso/saml2/callback/provider1/", "/")
+* // Returns: "/sso/saml2/callback/provider1"
+*/
+function normalizePathname(requestUrl, basePath) {
+	let pathname;
+	try {
+		pathname = new URL(requestUrl).pathname.replace(/\/+$/, "") || "/";
+	} catch {
+		return "/";
+	}
+	const normalizedBasePath = basePath.replace(/\/+$/, "");
+	if (normalizedBasePath === "") return pathname;
+	if (pathname === normalizedBasePath) return "/";
+	if (pathname.startsWith(normalizedBasePath + "/")) return pathname.slice(normalizedBasePath.length).replace(/\/+$/, "") || "/";
+	return pathname;
+}
+/**
+* Schemes that execute or embed code when navigated to or accepted as a
+* redirect target. These are never safe as an OAuth `redirect_uri` or as a
+* client-side navigation target (`window.location.href`, `location.assign`, ...).
+*/
+var DANGEROUS_URL_SCHEMES = [
+	"javascript:",
+	"data:",
+	"vbscript:"
+];
+/**
+* Returns `false` only when `value` is an absolute URL using a dangerous scheme
+* (`javascript:`, `data:`, `vbscript:`). Relative URLs (e.g. `/dashboard`) and
+* safe absolute schemes (`http`, `https`, custom app schemes such as
+* `myapp://`) return `true`.
+*
+* Use this to guard browser navigation sinks and any redirect target that may
+* originate from untrusted input. It is intentionally narrow: it blocks code
+* execution schemes without rejecting relative paths or mobile deep links.
+*/
+function isSafeUrlScheme(value) {
+	let parsed;
+	try {
+		parsed = new URL(value);
+	} catch {
+		return true;
+	}
+	return !DANGEROUS_URL_SCHEMES.includes(parsed.protocol);
+}
 //#endregion
 //#region node_modules/@better-auth/core/dist/utils/deprecate.mjs
 /**
@@ -16946,6 +16470,482 @@ async function createAuthorizationURL({ id, options, authorizationEndpoint, stat
 	});
 	return url;
 }
+//#endregion
+//#region node_modules/@better-fetch/fetch/dist/index.js
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, {
+	enumerable: true,
+	configurable: true,
+	writable: true,
+	value
+}) : obj[key] = value;
+var __spreadValues = (a, b) => {
+	for (var prop in b || (b = {})) if (__hasOwnProp.call(b, prop)) __defNormalProp(a, prop, b[prop]);
+	if (__getOwnPropSymbols) {
+		for (var prop of __getOwnPropSymbols(b)) if (__propIsEnum.call(b, prop)) __defNormalProp(a, prop, b[prop]);
+	}
+	return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+var BetterFetchError = class extends Error {
+	constructor(status, statusText, error) {
+		super(statusText || status.toString(), { cause: error });
+		this.status = status;
+		this.statusText = statusText;
+		this.error = error;
+		Error.captureStackTrace(this, this.constructor);
+	}
+};
+var initializePlugins = async (url, options) => {
+	var _a, _b, _c, _d, _e, _f;
+	let opts = options || {};
+	const hooks = {
+		onRequest: [options == null ? void 0 : options.onRequest],
+		onResponse: [options == null ? void 0 : options.onResponse],
+		onSuccess: [options == null ? void 0 : options.onSuccess],
+		onError: [options == null ? void 0 : options.onError],
+		onRetry: [options == null ? void 0 : options.onRetry]
+	};
+	if (!options || !(options == null ? void 0 : options.plugins)) return {
+		url,
+		options: opts,
+		hooks
+	};
+	for (const plugin of (options == null ? void 0 : options.plugins) || []) {
+		if (plugin.init) {
+			const pluginRes = await ((_a = plugin.init) == null ? void 0 : _a.call(plugin, url.toString(), options));
+			opts = pluginRes.options || opts;
+			url = pluginRes.url;
+		}
+		hooks.onRequest.push((_b = plugin.hooks) == null ? void 0 : _b.onRequest);
+		hooks.onResponse.push((_c = plugin.hooks) == null ? void 0 : _c.onResponse);
+		hooks.onSuccess.push((_d = plugin.hooks) == null ? void 0 : _d.onSuccess);
+		hooks.onError.push((_e = plugin.hooks) == null ? void 0 : _e.onError);
+		hooks.onRetry.push((_f = plugin.hooks) == null ? void 0 : _f.onRetry);
+	}
+	return {
+		url,
+		options: opts,
+		hooks
+	};
+};
+var LinearRetryStrategy = class {
+	constructor(options) {
+		this.options = options;
+	}
+	shouldAttemptRetry(attempt, response) {
+		if (this.options.shouldRetry) return Promise.resolve(attempt < this.options.attempts && this.options.shouldRetry(response));
+		return Promise.resolve(attempt < this.options.attempts);
+	}
+	getDelay() {
+		return this.options.delay;
+	}
+};
+var ExponentialRetryStrategy = class {
+	constructor(options) {
+		this.options = options;
+	}
+	shouldAttemptRetry(attempt, response) {
+		if (this.options.shouldRetry) return Promise.resolve(attempt < this.options.attempts && this.options.shouldRetry(response));
+		return Promise.resolve(attempt < this.options.attempts);
+	}
+	getDelay(attempt) {
+		return Math.min(this.options.maxDelay, this.options.baseDelay * 2 ** attempt);
+	}
+};
+function createRetryStrategy(options) {
+	if (typeof options === "number") return new LinearRetryStrategy({
+		type: "linear",
+		attempts: options,
+		delay: 1e3
+	});
+	switch (options.type) {
+		case "linear": return new LinearRetryStrategy(options);
+		case "exponential": return new ExponentialRetryStrategy(options);
+		default: throw new Error("Invalid retry strategy");
+	}
+}
+var getAuthHeader = async (options) => {
+	const headers = {};
+	const getValue = async (value) => typeof value === "function" ? await value() : value;
+	if (options == null ? void 0 : options.auth) {
+		if (options.auth.type === "Bearer") {
+			const token = await getValue(options.auth.token);
+			if (!token) return headers;
+			headers["authorization"] = `Bearer ${token}`;
+		} else if (options.auth.type === "Basic") {
+			const [username, password] = await Promise.all([getValue(options.auth.username), getValue(options.auth.password)]);
+			if (!username || !password) return headers;
+			headers["authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
+		} else if (options.auth.type === "Custom") {
+			const [prefix, value] = await Promise.all([getValue(options.auth.prefix), getValue(options.auth.value)]);
+			if (!value) return headers;
+			headers["authorization"] = `${prefix != null ? prefix : ""} ${value}`;
+		}
+	}
+	return headers;
+};
+var JSON_RE = /^application\/(?:[\w!#$%&*.^`~-]*\+)?json(;.+)?$/i;
+function detectResponseType(request) {
+	const _contentType = request.headers.get("content-type");
+	const textTypes = /* @__PURE__ */ new Set([
+		"image/svg",
+		"application/xml",
+		"application/xhtml",
+		"application/html"
+	]);
+	if (!_contentType) return "json";
+	const contentType = _contentType.split(";").shift() || "";
+	if (JSON_RE.test(contentType)) return "json";
+	if (textTypes.has(contentType) || contentType.startsWith("text/")) return "text";
+	return "blob";
+}
+function isJSONParsable(value) {
+	try {
+		JSON.parse(value);
+		return true;
+	} catch (error) {
+		return false;
+	}
+}
+function isJSONSerializable(value) {
+	if (value === void 0) return false;
+	const t = typeof value;
+	if (t === "string" || t === "number" || t === "boolean" || t === null) return true;
+	if (t !== "object") return false;
+	if (Array.isArray(value)) return true;
+	if (value.buffer) return false;
+	return value.constructor && value.constructor.name === "Object" || typeof value.toJSON === "function";
+}
+function jsonParse(text) {
+	try {
+		return JSON.parse(text);
+	} catch (error) {
+		return text;
+	}
+}
+function isFunction(value) {
+	return typeof value === "function";
+}
+function getFetch(options) {
+	if (options == null ? void 0 : options.customFetchImpl) return options.customFetchImpl;
+	if (typeof globalThis !== "undefined" && isFunction(globalThis.fetch)) return globalThis.fetch;
+	if (typeof window !== "undefined" && isFunction(window.fetch)) return window.fetch;
+	throw new Error("No fetch implementation found");
+}
+function mergeHeaders(...sources) {
+	const merged = {};
+	for (const source of sources) {
+		if (!source) continue;
+		if (source instanceof Headers) source.forEach((value, key) => {
+			merged[key] = value;
+		});
+		else {
+			const entries = Array.isArray(source) ? source : Object.entries(source);
+			for (const [key, value] of entries) if (value !== null && value !== void 0) merged[key] = value;
+		}
+	}
+	return merged;
+}
+async function getHeaders(opts) {
+	const headers = new Headers(mergeHeaders(opts == null ? void 0 : opts.headers, await getAuthHeader(opts)));
+	if (!headers.has("content-type")) {
+		const contentType = detectContentType(opts == null ? void 0 : opts.body);
+		if (contentType) headers.set("content-type", contentType);
+	}
+	return headers;
+}
+function detectContentType(body) {
+	if (isJSONSerializable(body)) return "application/json";
+	return null;
+}
+function getMediaType(headers) {
+	const contentType = headers.get("content-type");
+	return contentType ? contentType.split(";")[0].trim().toLowerCase() : null;
+}
+function getBody(options, headers) {
+	const { body } = options;
+	if (!body) return null;
+	if (!isJSONSerializable(body)) return body;
+	if (typeof body === "string") return body;
+	if (getMediaType(headers) === "application/x-www-form-urlencoded") return new URLSearchParams(body).toString();
+	return JSON.stringify(body);
+}
+function getMethod(url, options) {
+	var _a;
+	if (options == null ? void 0 : options.method) return options.method.toUpperCase();
+	if (url.startsWith("@")) {
+		const pMethod = (_a = url.split("@")[1]) == null ? void 0 : _a.split("/")[0];
+		if (!methods.includes(pMethod)) return (options == null ? void 0 : options.body) ? "POST" : "GET";
+		return pMethod.toUpperCase();
+	}
+	return (options == null ? void 0 : options.body) ? "POST" : "GET";
+}
+function getTimeout(options, controller) {
+	let abortTimeout;
+	if (!(options == null ? void 0 : options.signal) && (options == null ? void 0 : options.timeout)) abortTimeout = setTimeout(() => controller == null ? void 0 : controller.abort(), options == null ? void 0 : options.timeout);
+	return {
+		abortTimeout,
+		clearTimeout: () => {
+			if (abortTimeout) clearTimeout(abortTimeout);
+		}
+	};
+}
+var ValidationError = class _ValidationError extends Error {
+	constructor(issues, message) {
+		super(message || JSON.stringify(issues, null, 2));
+		this.issues = issues;
+		Object.setPrototypeOf(this, _ValidationError.prototype);
+	}
+};
+async function parseStandardSchema(schema, input) {
+	const result = await schema["~standard"].validate(input);
+	if (result.issues) throw new ValidationError(result.issues);
+	return result.value;
+}
+var methods = [
+	"get",
+	"post",
+	"put",
+	"patch",
+	"delete"
+];
+var applySchemaPlugin = (config) => ({
+	id: "apply-schema",
+	name: "Apply Schema",
+	version: "1.0.0",
+	async init(url, options) {
+		var _a, _b, _c, _d;
+		const schema = ((_b = (_a = config.plugins) == null ? void 0 : _a.find((plugin) => {
+			var _a2;
+			return ((_a2 = plugin.schema) == null ? void 0 : _a2.config) ? url.startsWith(plugin.schema.config.baseURL || "") || url.startsWith(plugin.schema.config.prefix || "") : false;
+		})) == null ? void 0 : _b.schema) || config.schema;
+		if (schema) {
+			let urlKey = url;
+			if ((_c = schema.config) == null ? void 0 : _c.prefix) {
+				if (urlKey.startsWith(schema.config.prefix)) {
+					urlKey = urlKey.replace(schema.config.prefix, "");
+					if (schema.config.baseURL) url = url.replace(schema.config.prefix, schema.config.baseURL);
+				}
+			}
+			if ((_d = schema.config) == null ? void 0 : _d.baseURL) {
+				if (urlKey.startsWith(schema.config.baseURL)) urlKey = urlKey.replace(schema.config.baseURL, "");
+			}
+			if (urlKey.startsWith("/") && urlKey.charAt(1) === "@") urlKey = urlKey.substring(1);
+			const keySchema = schema.schema[urlKey];
+			if (keySchema) {
+				let validatedHeaders = options == null ? void 0 : options.headers;
+				if (keySchema.headers && !(options == null ? void 0 : options.disableValidation)) {
+					const normalizedHeaders = {};
+					if (options == null ? void 0 : options.headers) {
+						if (options.headers instanceof Headers) options.headers.forEach((value, key) => {
+							normalizedHeaders[key.toLowerCase()] = value;
+						});
+						else if (typeof options.headers === "object") {
+							for (const [key, value] of Object.entries(options.headers)) if (value !== null && value !== void 0) normalizedHeaders[key.toLowerCase()] = value;
+						}
+					}
+					const validated = await parseStandardSchema(keySchema.headers, normalizedHeaders);
+					const finalHeaders = {};
+					for (const [key, value] of Object.entries(validated)) finalHeaders[key.toLowerCase()] = value;
+					validatedHeaders = finalHeaders;
+				}
+				let opts = __spreadProps(__spreadValues({}, options), {
+					method: keySchema.method,
+					output: keySchema.output,
+					headers: validatedHeaders
+				});
+				if (!(options == null ? void 0 : options.disableValidation)) opts = __spreadProps(__spreadValues({}, opts), {
+					body: keySchema.input ? await parseStandardSchema(keySchema.input, options == null ? void 0 : options.body) : options == null ? void 0 : options.body,
+					params: keySchema.params ? await parseStandardSchema(keySchema.params, options == null ? void 0 : options.params) : options == null ? void 0 : options.params,
+					query: keySchema.query ? await parseStandardSchema(keySchema.query, options == null ? void 0 : options.query) : options == null ? void 0 : options.query
+				});
+				return {
+					url,
+					options: opts
+				};
+			}
+		}
+		return {
+			url,
+			options
+		};
+	}
+});
+var createFetch = (config) => {
+	async function $fetch(url, options) {
+		const opts = __spreadProps(__spreadValues(__spreadValues({}, config), options), {
+			headers: mergeHeaders(config == null ? void 0 : config.headers, options == null ? void 0 : options.headers),
+			plugins: [
+				...(config == null ? void 0 : config.plugins) || [],
+				applySchemaPlugin(config || {}),
+				...(options == null ? void 0 : options.plugins) || []
+			]
+		});
+		if (config == null ? void 0 : config.catchAllError) try {
+			return await betterFetch(url, opts);
+		} catch (error) {
+			return {
+				data: null,
+				error: {
+					status: 500,
+					statusText: "Fetch Error",
+					message: "Fetch related error. Captured by catchAllError option. See error property for more details.",
+					error
+				}
+			};
+		}
+		return await betterFetch(url, opts);
+	}
+	return $fetch;
+};
+var isReservedPathSegment = (value) => value === "." || value === "..";
+function encodePathSegment(segment, pathParams) {
+	let pathSegment = segment;
+	for (const [key, value] of pathParams) pathSegment = pathSegment.replace(key, value);
+	if (isReservedPathSegment(pathSegment)) throw new TypeError("Path parameters cannot be reserved path segments");
+	return encodeURIComponent(pathSegment);
+}
+function getURL2(url, option) {
+	const { baseURL, params, query } = option || {
+		query: {},
+		params: {},
+		baseURL: ""
+	};
+	let basePath = url.startsWith("http") ? url.split("/").slice(0, 3).join("/") : baseURL || "";
+	if (url.startsWith("@")) {
+		const m = url.toString().split("@")[1].split("/")[0];
+		if (methods.includes(m)) url = url.replace(`@${m}/`, "/");
+	}
+	if (!basePath.endsWith("/")) basePath += "/";
+	let [path, urlQuery] = url.replace(basePath, "").split("?");
+	const queryParams = new URLSearchParams(urlQuery);
+	for (const [key, value] of Object.entries(query || {})) {
+		if (value == null) continue;
+		let serializedValue;
+		if (typeof value === "string") serializedValue = value;
+		else if (Array.isArray(value)) {
+			for (const val of value) queryParams.append(key, val);
+			continue;
+		} else serializedValue = JSON.stringify(value);
+		queryParams.set(key, serializedValue);
+	}
+	const pathParams = /* @__PURE__ */ new Map();
+	if (params) {
+		if (Array.isArray(params)) {
+			const paramPaths = path.split("/").filter((p) => p.startsWith(":"));
+			for (const [index, key] of paramPaths.entries()) {
+				const value = params[index];
+				pathParams.set(key, String(value));
+			}
+		} else for (const [key, value] of Object.entries(params)) pathParams.set(`:${key}`, String(value));
+	}
+	path = path.split("/").map((segment) => encodePathSegment(segment, pathParams)).join("/");
+	path = path.replace(/^\/+/, "");
+	let queryParamString = queryParams.toString();
+	queryParamString = queryParamString.length > 0 ? `?${queryParamString}`.replace(/\+/g, "%20") : "";
+	if (!basePath.startsWith("http")) return `${basePath}${path}${queryParamString}`;
+	return new URL(`${path}${queryParamString}`, basePath);
+}
+var betterFetch = async (url, options) => {
+	var _a, _b, _c, _d, _e, _f, _g, _h;
+	const { hooks, url: __url, options: opts } = await initializePlugins(url, options);
+	const fetch = getFetch(opts);
+	const controller = new AbortController();
+	const signal = (_a = opts.signal) != null ? _a : controller.signal;
+	const _url = getURL2(__url, opts);
+	const headers = await getHeaders(opts);
+	const body = getBody(opts, headers);
+	const method = getMethod(__url, opts);
+	const context = __spreadProps(__spreadValues({}, opts), {
+		url: _url,
+		headers,
+		body,
+		method,
+		signal
+	});
+	for (const onRequest of hooks.onRequest) if (onRequest) {
+		const res = await onRequest(context);
+		if (typeof res === "object" && res !== null) Object.assign(context, res);
+	}
+	if ("pipeTo" in context && typeof context.pipeTo === "function" || typeof ((_b = options == null ? void 0 : options.body) == null ? void 0 : _b.pipe) === "function") {
+		if (!("duplex" in context)) context.duplex = "half";
+	}
+	const { clearTimeout: clearTimeout2 } = getTimeout(opts, controller);
+	let response = await fetch(context.url, context);
+	clearTimeout2();
+	const responseContext = {
+		response,
+		request: context
+	};
+	for (const onResponse of hooks.onResponse) if (onResponse) {
+		const r = await onResponse(__spreadProps(__spreadValues({}, responseContext), { response: ((_c = options == null ? void 0 : options.hookOptions) == null ? void 0 : _c.cloneResponse) ? response.clone() : response }));
+		if (r instanceof Response) response = r;
+		else if (typeof r === "object" && r !== null) response = r.response;
+	}
+	if (response.ok) {
+		if (!(context.method !== "HEAD")) return {
+			data: "",
+			error: null
+		};
+		const responseType = detectResponseType(response);
+		const successContext = {
+			data: null,
+			response,
+			request: context
+		};
+		if (responseType === "json" || responseType === "text") {
+			const text = await response.text();
+			successContext.data = await ((_d = context.jsonParser) != null ? _d : jsonParse)(text);
+		} else successContext.data = await response[responseType]();
+		if (context == null ? void 0 : context.output) {
+			if (context.output && !context.disableValidation) successContext.data = await parseStandardSchema(context.output, successContext.data);
+		}
+		for (const onSuccess of hooks.onSuccess) if (onSuccess) await onSuccess(__spreadProps(__spreadValues({}, successContext), { response: ((_e = options == null ? void 0 : options.hookOptions) == null ? void 0 : _e.cloneResponse) ? response.clone() : response }));
+		if (options == null ? void 0 : options.throw) return successContext.data;
+		return {
+			data: successContext.data,
+			error: null
+		};
+	}
+	const parser = (_f = options == null ? void 0 : options.jsonParser) != null ? _f : jsonParse;
+	const responseText = await response.text();
+	const isJSONResponse = isJSONParsable(responseText);
+	const errorObject = isJSONResponse ? await parser(responseText) : null;
+	const errorContext = {
+		response,
+		responseText,
+		request: context,
+		error: __spreadProps(__spreadValues({}, errorObject), {
+			status: response.status,
+			statusText: response.statusText
+		})
+	};
+	for (const onError of hooks.onError) if (onError) await onError(__spreadProps(__spreadValues({}, errorContext), { response: ((_g = options == null ? void 0 : options.hookOptions) == null ? void 0 : _g.cloneResponse) ? response.clone() : response }));
+	if (options == null ? void 0 : options.retry) {
+		const retryStrategy = createRetryStrategy(options.retry);
+		const _retryAttempt = (_h = options.retryAttempt) != null ? _h : 0;
+		if (await retryStrategy.shouldAttemptRetry(_retryAttempt, response)) {
+			for (const onRetry of hooks.onRetry) if (onRetry) await onRetry(responseContext);
+			const delay = retryStrategy.getDelay(_retryAttempt);
+			await new Promise((resolve) => setTimeout(resolve, delay));
+			return await betterFetch(url, __spreadProps(__spreadValues({}, options), { retryAttempt: _retryAttempt + 1 }));
+		}
+	}
+	if (options == null ? void 0 : options.throw) throw new BetterFetchError(response.status, response.statusText, isJSONResponse ? errorObject : responseText);
+	return {
+		data: null,
+		error: __spreadProps(__spreadValues({}, errorObject), {
+			status: response.status,
+			statusText: response.statusText
+		})
+	};
+};
 //#endregion
 //#region node_modules/@better-auth/core/dist/oauth2/reject-redirects.mjs
 var HTTP_REDIRECT_STATUSES = /* @__PURE__ */ new Set([
@@ -20046,4 +20046,4 @@ var socialProviders = {
 };
 var SocialProviderListEnum = _enum(Object.keys(socialProviders)).or(string());
 //#endregion
-export { encode as $, queueAfterTransactionHook as $t, jwtVerify as A, number as At, jweAlgorithm as B, isSafeUrlScheme as Bt, serializeSignedCookie as C, ZodString as Ct, decodeJwt as D, email as Dt, base64Url as E, boolean as Et, JWE_RECOGNIZED as F, union as Ft, decodeBase64url as G, withSpan as Gt, prepareKey as H, capitalizeFirstLetter as Ht, JWS_RECOGNIZED as I, _coercedBoolean as It, parseJoseHeader as J, ATTR_OPERATION_ID as Jt, digest as K, ATTR_CONTEXT as Kt, validateAlgorithms as L, _coercedString as Lt, validateClaimsSet as M, optional as Mt, jwsAlgorithm as N, record as Nt, decodeProtectedHeader as O, literal as Ot, sign as P, string as Pt, isObject as Q, getCurrentAdapter as Qt, validateCrit as R, betterFetch as Rt, serializeCookie as S, ZodBoolean as St, base64 as T, array as Tt, jwkToKey as U, toKebabCase as Ut, jweEncryption as V, normalizePathname as Vt, assertNotSet as W, createAdapterFactory as Wt, isDisjoint as X, safeJSONParse as Xt, unprotected as Y, import_src as Yt, isJWK as Z, getAuthTables as Zt, runWithRequestState as _, APIError as _n, concat as _t, createAuthorizationURL as a, generateId as an, JOSENotSupported as at, createRouter$1 as b, BASE_ERROR_CODES as bn, uint32be as bt, createRateLimitKey as c, logger as cn, JWKInvalid as ct, deprecate as d, env as dn, JWTExpired as dt, runWithAdapter as en, assertCryptoKey as et, createAuthEndpoint as f, getBooleanEnvVar as fn, JWTInvalid as ft, hasRequestState as g, isTest as gn, checkUsage as gt, defineRequestState as h, isProduction as hn, checkModulusLength as ht, refreshAccessToken as i, initGetFieldName as in, JOSEAlgNotAllowed as it, JWTClaimsBuilder as j, object as jt, importJWK as k, looseObject as kt, findInvalidTrustedProxies as l, shouldPublishLog as ln, JWSInvalid as lt, isAPIError as m, isDevelopment as mn, checkCryptoKey as mt, socialProviders as n, getBetterAuthVersion as nn, isKeyLike as nt, applyDefaultAccessTokenExpiry as o, createRandomStringGenerator as on, JWEDecryptionFailed as ot, createAuthMiddleware as p, getEnvVar as pn, invalidKeyInput as pt, encodeBase64url as q, ATTR_HOOK_TYPE as qt, validateAuthorizationCode as r, initGetModelName as rn, isKeyObject as rt, isLoopbackHost as s, createLogger as sn, JWEInvalid as st, SocialProviderListEnum as t, runWithTransaction as tn, isCryptoKey as tt, getIp as u, ENV as un, JWTClaimValidationFailed as ut, getCurrentAuthContext as v, BetterAuthError as vn, decoder as vt, filterOutputFields as w, any as wt, toResponse as x, defineErrorCodes as xn, uint64be as xt, runWithEndpointContext as y, kAPIErrorHeaderSymbol as yn, encode$1 as yt, validateCritDuplicates as z, createFetch as zt };
+export { unprotected as $, queueAfterTransactionHook as $t, base64Url as A, boolean as At, JWS_RECOGNIZED as B, _coercedBoolean as Bt, runWithEndpointContext as C, encode$1 as Ct, serializeSignedCookie as D, ZodString as Dt, serializeCookie as E, ZodBoolean as Et, JWTClaimsBuilder as F, object as Ft, jweEncryption as G, withSpan as Gt, validateCrit as H, capitalizeFirstLetter as Ht, validateClaimsSet as I, optional as It, assertNotSet as J, ATTR_OPERATION_ID as Jt, prepareKey as K, ATTR_CONTEXT as Kt, jwsAlgorithm as L, record as Lt, decodeProtectedHeader as M, literal as Mt, importJWK as N, looseObject as Nt, filterOutputFields as O, any as Ot, jwtVerify as P, number as Pt, parseJoseHeader as Q, getCurrentAdapter as Qt, sign as R, string as Rt, getCurrentAuthContext as S, decoder as St, toResponse as T, uint64be as Tt, validateCritDuplicates as U, toKebabCase as Ut, validateAlgorithms as V, _coercedString as Vt, jweAlgorithm as W, createAdapterFactory as Wt, digest as X, safeJSONParse as Xt, decodeBase64url as Y, import_src as Yt, encodeBase64url as Z, getAuthTables as Zt, createAuthMiddleware as _, APIError as _n, invalidKeyInput as _t, betterFetch as a, generateId as an, isCryptoKey as at, hasRequestState as b, BASE_ERROR_CODES as bn, checkUsage as bt, applyDefaultAccessTokenExpiry as c, logger as cn, JOSEAlgNotAllowed as ct, findInvalidTrustedProxies as d, env as dn, JWEInvalid as dt, runWithAdapter as en, isDisjoint as et, getIp as f, getBooleanEnvVar as fn, JWKInvalid as ft, createAuthEndpoint as g, isTest as gn, JWTInvalid as gt, normalizePathname as h, isProduction as hn, JWTExpired as ht, refreshAccessToken as i, initGetFieldName as in, assertCryptoKey as it, decodeJwt as j, email as jt, base64 as k, array as kt, isLoopbackHost as l, shouldPublishLog as ln, JOSENotSupported as lt, isSafeUrlScheme as m, isDevelopment as mn, JWTClaimValidationFailed as mt, socialProviders as n, getBetterAuthVersion as nn, isObject as nt, createFetch as o, createRandomStringGenerator as on, isKeyLike as ot, deprecate as p, getEnvVar as pn, JWSInvalid as pt, jwkToKey as q, ATTR_HOOK_TYPE as qt, validateAuthorizationCode as r, initGetModelName as rn, encode as rt, createAuthorizationURL as s, createLogger as sn, isKeyObject as st, SocialProviderListEnum as t, runWithTransaction as tn, isJWK as tt, createRateLimitKey as u, ENV as un, JWEDecryptionFailed as ut, isAPIError as v, BetterAuthError as vn, checkCryptoKey as vt, createRouter$1 as w, uint32be as wt, runWithRequestState as x, defineErrorCodes as xn, concat as xt, defineRequestState as y, kAPIErrorHeaderSymbol as yn, checkModulusLength as yt, JWE_RECOGNIZED as z, union as zt };

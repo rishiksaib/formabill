@@ -69,7 +69,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [settings]);
 
   const saveClient = useCallback(async (client: Client) => {
-    const next: Client = { ...client, createdAt: client.createdAt || new Date().toISOString() };
+    // Merge over the stored record so partial saves (e.g. the invoice
+    // editor's name/email autosave) never wipe phone/company/notes.
+    let prev: Client | undefined;
+    try {
+      prev = await getDb().clients.get(client.id);
+    } catch {
+      prev = undefined;
+    }
+    const next: Client = {
+      ...prev,
+      ...client,
+      createdAt: client.createdAt || prev?.createdAt || new Date().toISOString(),
+    };
     await getDb().clients.put(next);
     setClients((prev) => {
       const idx = prev.findIndex((c) => c.id === next.id);

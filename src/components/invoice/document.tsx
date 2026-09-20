@@ -68,8 +68,10 @@ export function InvoiceDocument({
           <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
             Bill to
           </p>
-          <p className="mt-2 text-sm font-medium">{invoice.client.name || "Client"}</p>
-          <p className="text-sm text-muted-foreground">{invoice.client.email || "—"}</p>
+          <p className="mt-2 text-sm font-medium">
+            {invoice.client.name || <span className="text-muted-foreground">Client name</span>}
+          </p>
+          <p className="text-sm text-muted-foreground">{invoice.client.email || "client@email.com"}</p>
         </div>
       </div>
 
@@ -84,10 +86,15 @@ export function InvoiceDocument({
             </tr>
           </thead>
           <tbody>
-            {invoice.lineItems.length === 0 ? (
+            {invoice.lineItems.length === 0 ||
+            invoice.lineItems.every(
+              (item) => !item.description.trim() && !(item.quantity > 0 && item.rate > 0),
+            ) ? (
               <tr>
-                <td colSpan={4} className="py-6 text-muted-foreground">
-                  No line items yet
+                <td colSpan={4} className="py-6">
+                  <div className="rounded-lg border border-dashed border-border px-4 py-5 text-center text-muted-foreground">
+                    Add your first line item — it appears here instantly
+                  </div>
                 </td>
               </tr>
             ) : (

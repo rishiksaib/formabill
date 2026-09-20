@@ -1,0 +1,1231 @@
+import { o as __toESM } from "../_runtime.mjs";
+import { n as require_react } from "../_libs/@radix-ui/react-compose-refs+[...].mjs";
+import { v as Link, y as useNavigate } from "../_libs/@tanstack/react-router+[...].mjs";
+import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
+import { t as Button } from "./button-CYO0UllO.mjs";
+import { t as Input } from "./input-03uEhuzd.mjs";
+import { t as Label } from "./label-BHyMjyQZ.mjs";
+import { n as toast } from "../_libs/sonner.mjs";
+import { r as Route$13 } from "./router-C7XEBQbQ.mjs";
+import { r as signOut } from "./client-DpPrbCFe.mjs";
+import { t as useCurrentUserState } from "./use-current-user-BMDGK6Q_.mjs";
+import { n as useStore } from "./context-C9_A_ogf.mjs";
+import { t as Textarea } from "./textarea-Du_npzpQ.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/settings-DjKJmJ1v.js
+var import_react = /* @__PURE__ */ __toESM(require_react());
+var import_jsx_runtime = require_jsx_runtime();
+function SettingsPage() {
+	const { ready, settings, saveSettings } = useStore();
+	const { pro: proReturn } = Route$13.useSearch();
+	const navigate = useNavigate();
+	const fileRef = (0, import_react.useRef)(null);
+	const [busy, setBusy] = (0, import_react.useState)(false);
+	const [proBusy, setProBusy] = (0, import_react.useState)(false);
+	const [serverPro, setServerPro] = (0, import_react.useState)(null);
+	const [serverLifetime, setServerLifetime] = (0, import_react.useState)(false);
+	const [platformConfigured, setPlatformConfigured] = (0, import_react.useState)(false);
+	const [authenticated, setAuthenticated] = (0, import_react.useState)(null);
+	const [plan, setPlan] = (0, import_react.useState)("pro_monthly");
+	const [signingOut, setSigningOut] = (0, import_react.useState)(false);
+	const { user: accountUser, isPending: accountPending } = useCurrentUserState();
+	const [mcpTokens, setMcpTokens] = (0, import_react.useState)([]);
+	const [mcpName, setMcpName] = (0, import_react.useState)("");
+	const [mcpSecret, setMcpSecret] = (0, import_react.useState)(null);
+	const [mcpBusy, setMcpBusy] = (0, import_react.useState)(false);
+	const [mcpNeedsSignIn, setMcpNeedsSignIn] = (0, import_react.useState)(false);
+	const [giftCodes, setGiftCodes] = (0, import_react.useState)([]);
+	const [giftMax, setGiftMax] = (0, import_react.useState)(0);
+	const [giftDuration, setGiftDuration] = (0, import_react.useState)(1);
+	const [giftFresh, setGiftFresh] = (0, import_react.useState)(null);
+	const [giftBusy, setGiftBusy] = (0, import_react.useState)(false);
+	const [redeemCode, setRedeemCode] = (0, import_react.useState)("");
+	const [redeemBusy, setRedeemBusy] = (0, import_react.useState)(false);
+	const [referral, setReferral] = (0, import_react.useState)(null);
+	const onSignOut = async () => {
+		setSigningOut(true);
+		try {
+			await signOut("/");
+		} catch {
+			setSigningOut(false);
+			toast.error("Could not sign out — please try again");
+		}
+	};
+	const isPro = serverPro ?? false;
+	const loadProStatus = async () => {
+		try {
+			const response = await fetch("/api/pro/status");
+			if (!response.ok) return;
+			const status = await response.json();
+			setServerPro(Boolean(status.isPro));
+			setServerLifetime(Boolean(status.lifetime));
+			setPlatformConfigured(Boolean(status.configured));
+			setAuthenticated(Boolean(status.authenticated));
+		} catch {}
+	};
+	(0, import_react.useEffect)(() => {
+		if (!ready) return;
+		loadProStatus();
+	}, [ready]);
+	const loadMcpTokens = async () => {
+		try {
+			const response = await fetch("/api/mcp/tokens");
+			if (response.status === 401) {
+				setMcpNeedsSignIn(true);
+				return;
+			}
+			if (!response.ok) throw new Error("Could not load tokens");
+			const json = await response.json();
+			setMcpTokens(json.tokens ?? []);
+			setMcpNeedsSignIn(false);
+		} catch {
+			toast.error("Could not load MCP tokens");
+		}
+	};
+	(0, import_react.useEffect)(() => {
+		if (!ready || !isPro) return;
+		loadMcpTokens();
+	}, [ready, isPro]);
+	const loadGiftCodes = async () => {
+		try {
+			const response = await fetch("/api/gift-codes");
+			if (!response.ok) return;
+			const json = await response.json();
+			setGiftCodes(json.codes ?? []);
+			setGiftMax(json.maxMonths ?? 0);
+			setGiftDuration((current) => json.maxMonths && current > json.maxMonths ? json.maxMonths : current);
+		} catch {}
+	};
+	const loadReferral = async () => {
+		try {
+			const response = await fetch("/api/referrals/mine");
+			if (!response.ok) return;
+			const json = await response.json();
+			setReferral(json);
+		} catch {}
+	};
+	(0, import_react.useEffect)(() => {
+		if (!ready || authenticated === false) return;
+		loadGiftCodes();
+		loadReferral();
+	}, [ready, authenticated]);
+	const onGenerateGift = async () => {
+		setGiftBusy(true);
+		try {
+			const response = await fetch("/api/gift-codes", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ durationMonths: giftDuration })
+			});
+			const json = await response.json();
+			if (!response.ok) throw new Error(json.error || "Could not create gift code");
+			setGiftFresh(json.code ?? null);
+			await loadGiftCodes();
+			toast.success("Gift code created — share it with your friend");
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Could not create gift code");
+		} finally {
+			setGiftBusy(false);
+		}
+	};
+	const onRedeemGift = async () => {
+		if (!redeemCode.trim()) {
+			toast.error("Enter a gift code first");
+			return;
+		}
+		setRedeemBusy(true);
+		try {
+			const response = await fetch("/api/gift-codes/redeem", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ code: redeemCode })
+			});
+			const json = await response.json();
+			if (!response.ok || !json.ok) throw new Error(json.error || "Could not redeem code");
+			setRedeemCode("");
+			await loadProStatus();
+			await loadGiftCodes();
+			toast.success(`Pro unlocked for ${json.durationMonths} month${json.durationMonths === 1 ? "" : "s"} — enjoy!`);
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Could not redeem code");
+		} finally {
+			setRedeemBusy(false);
+		}
+	};
+	(0, import_react.useEffect)(() => {
+		if (!ready || proReturn !== "success") return;
+		toast.message("Pro payment received", { description: "Activating your Pro workspace…" });
+		loadProStatus();
+		const timer = window.setTimeout(() => void loadProStatus(), 4e3);
+		return () => window.clearTimeout(timer);
+	}, [ready, proReturn]);
+	if (!ready) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "h-64 animate-pulse rounded-xl bg-muted/60" });
+	const startProCheckout = async () => {
+		setProBusy(true);
+		try {
+			const response = await fetch("/api/pro/checkout", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ plan })
+			});
+			const json = await response.json();
+			if (response.status === 401) {
+				toast.message("Sign in to get Pro", { description: "Checkout links to your account so we can activate it." });
+				await navigate({ to: "/login" });
+				return;
+			}
+			if (!response.ok || !json.shortUrl) throw new Error(json.error || json.message || "Pro checkout is unavailable");
+			window.location.href = json.shortUrl;
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Could not start Pro checkout");
+		} finally {
+			setProBusy(false);
+		}
+	};
+	const copyText = async (value, label) => {
+		try {
+			await navigator.clipboard.writeText(value);
+			toast.success(`${label} copied`);
+		} catch {
+			toast.error(`Could not copy ${label.toLowerCase()}`);
+		}
+	};
+	const onGenerateToken = async () => {
+		setMcpBusy(true);
+		try {
+			const response = await fetch("/api/mcp/tokens", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: mcpName })
+			});
+			const json = await response.json();
+			if (!response.ok) throw new Error(json.error || "Could not create token");
+			setMcpSecret(json.token ?? null);
+			setMcpName("");
+			await loadMcpTokens();
+			toast.success("Token created — copy it now, it won't be shown again");
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Could not create token");
+		} finally {
+			setMcpBusy(false);
+		}
+	};
+	const onRevokeToken = async (id) => {
+		try {
+			if (!(await fetch(`/api/mcp/tokens/${encodeURIComponent(id)}`, { method: "DELETE" })).ok) throw new Error("Could not revoke token");
+			if (mcpSecret) setMcpSecret(null);
+			await loadMcpTokens();
+			toast.success("Token revoked");
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Could not revoke token");
+		}
+	};
+	const onLogo = (file) => {
+		if (!file) return;
+		if (file.size > 8e5) {
+			toast.error("Logo should be under 800KB");
+			return;
+		}
+		const reader = new FileReader();
+		reader.onload = () => {
+			saveSettings({ logoUrl: String(reader.result || "") });
+		};
+		reader.readAsDataURL(file);
+	};
+	const accountLabel = accountUser?.displayName ?? accountUser?.primaryEmail ?? "Account";
+	const paymentMethods = settings.paymentMethods || {};
+	const hasBankDetails = Boolean(paymentMethods.bankName || paymentMethods.bankAccountName || paymentMethods.bankAccount || paymentMethods.bankIfscSwift);
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: "mx-auto max-w-xl",
+		children: [
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "text-xs tracking-[0.16em] text-muted-foreground uppercase",
+				children: "Workspace"
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
+				className: "font-display text-3xl tracking-tight",
+				children: "Settings"
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "mt-1 text-sm text-muted-foreground",
+				children: "Everything saves automatically."
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", {
+				"aria-label": "Account",
+				className: "mt-6 rounded-xl border border-border bg-card p-6",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+					className: "text-xs tracking-[0.16em] text-muted-foreground uppercase",
+					children: "Account"
+				}), accountPending ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-4 h-12 animate-pulse rounded-lg bg-muted/60" }) : accountUser && !accountUser.isDevFallback ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "mt-4 flex flex-wrap items-center gap-4",
+					children: [
+						accountUser.profileImageUrl ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
+							src: accountUser.profileImageUrl,
+							alt: "",
+							className: "h-12 w-12 rounded-full object-cover"
+						}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							"aria-hidden": "true",
+							className: "grid h-12 w-12 place-items-center rounded-full bg-secondary text-lg font-medium text-foreground",
+							children: accountLabel.charAt(0).toUpperCase()
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "min-w-0 flex-1",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+								className: "truncate font-medium",
+								children: accountUser.displayName ?? "Account"
+							}), accountUser.primaryEmail ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+								className: "truncate text-sm text-muted-foreground",
+								children: accountUser.primaryEmail
+							}) : null]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							type: "button",
+							variant: "outline",
+							disabled: signingOut,
+							onClick: () => void onSignOut(),
+							children: signingOut ? "Signing out…" : "Sign out"
+						})
+					]
+				}) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "mt-4 flex flex-wrap items-center justify-between gap-4",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "text-sm text-muted-foreground",
+						children: "Not signed in. Sign in for sync, per-user limits, and Pro."
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+						type: "button",
+						asChild: true,
+						children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+							to: "/login",
+							children: "Sign in"
+						})
+					})]
+				})]
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionCard, {
+				kicker: "Studio details",
+				title: "Your studio",
+				blurb: "Prefills every new invoice.",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "grid gap-4",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+							className: "grid gap-1.5",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "Studio name" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+								value: settings.name,
+								onChange: (e) => void saveSettings({ name: e.target.value }),
+								placeholder: "North Studio"
+							})]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "grid gap-4 sm:grid-cols-2",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+								className: "grid gap-1.5",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "Email" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+									type: "email",
+									value: settings.email,
+									onChange: (e) => void saveSettings({ email: e.target.value }),
+									placeholder: "hello@studio.com"
+								})]
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+								className: "grid gap-1.5",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "Default currency" }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", {
+									className: "flex h-11 w-full rounded-md border border-input bg-card px-3 text-sm",
+									value: settings.defaultCurrency,
+									onChange: (e) => void saveSettings({ defaultCurrency: e.target.value }),
+									children: [
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", {
+											value: "USD",
+											children: "USD — US Dollar"
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", {
+											value: "EUR",
+											children: "EUR — Euro"
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", {
+											value: "GBP",
+											children: "GBP — Pound Sterling"
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", {
+											value: "INR",
+											children: "INR — Indian Rupee"
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", {
+											value: "AUD",
+											children: "AUD — Australian Dollar"
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", {
+											value: "CAD",
+											children: "CAD — Canadian Dollar"
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", {
+											value: "SGD",
+											children: "SGD — Singapore Dollar"
+										})
+									]
+								})]
+							})]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+							className: "grid gap-1.5",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "Address" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Textarea, {
+								rows: 2,
+								value: settings.address || "",
+								onChange: (e) => void saveSettings({ address: e.target.value }),
+								placeholder: "Street, city, country"
+							})]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+							className: "grid gap-1.5 sm:max-w-48",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "Default tax rate (%)" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+								type: "number",
+								min: 0,
+								step: "0.01",
+								value: settings.defaultTaxRate,
+								onChange: (e) => void saveSettings({ defaultTaxRate: Number(e.target.value) })
+							})]
+						})
+					]
+				})
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionCard, {
+				kicker: "Payment methods",
+				title: "How clients pay you",
+				blurb: "Shown on your invoices. Money goes to your own accounts.",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "grid gap-4",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+							className: "grid gap-1.5",
+							children: [
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "UPI ID" }),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+									value: settings.paymentMethods?.upiId || "",
+									onChange: (e) => void saveSettings({ paymentMethods: {
+										...settings.paymentMethods || {},
+										upiId: e.target.value
+									} }),
+									placeholder: "yourname@upi"
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+									className: "text-xs text-muted-foreground",
+									children: "For INR invoices."
+								})
+							]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+							className: "grid gap-1.5",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "PayPal link or email" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+								value: settings.paymentMethods?.paypalEmail || "",
+								onChange: (e) => void saveSettings({ paymentMethods: {
+									...settings.paymentMethods || {},
+									paypalEmail: e.target.value
+								} }),
+								placeholder: "paypal.me/yourname or paypal@example.com"
+							})]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("details", {
+							open: hasBankDetails || void 0,
+							className: "overflow-hidden rounded-lg border border-border",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("summary", {
+								className: "flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium",
+								children: ["Bank details", hasBankDetails ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+									className: "rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800",
+									children: "Added"
+								}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+									className: "text-xs font-normal text-muted-foreground",
+									children: "Optional"
+								})]
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "grid gap-4 border-t border-border p-4 sm:grid-cols-2",
+								children: [
+									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+										className: "grid gap-1.5",
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "Bank name" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+											value: settings.paymentMethods?.bankName || "",
+											onChange: (e) => void saveSettings({ paymentMethods: {
+												...settings.paymentMethods || {},
+												bankName: e.target.value
+											} }),
+											placeholder: "HDFC Bank"
+										})]
+									}),
+									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+										className: "grid gap-1.5",
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "Account name" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+											value: settings.paymentMethods?.bankAccountName || "",
+											onChange: (e) => void saveSettings({ paymentMethods: {
+												...settings.paymentMethods || {},
+												bankAccountName: e.target.value
+											} }),
+											placeholder: "Your name or business"
+										})]
+									}),
+									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+										className: "grid gap-1.5",
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "Account number / IBAN" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+											value: settings.paymentMethods?.bankAccount || "",
+											onChange: (e) => void saveSettings({ paymentMethods: {
+												...settings.paymentMethods || {},
+												bankAccount: e.target.value
+											} }),
+											placeholder: "Acc. no / IBAN"
+										})]
+									}),
+									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+										className: "grid gap-1.5",
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "IFSC / SWIFT" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+											value: settings.paymentMethods?.bankIfscSwift || "",
+											onChange: (e) => void saveSettings({ paymentMethods: {
+												...settings.paymentMethods || {},
+												bankIfscSwift: e.target.value
+											} }),
+											placeholder: "IFSC or SWIFT code"
+										})]
+									})
+								]
+							})]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "rounded-lg border border-dashed border-border bg-secondary/40 p-4",
+							children: [
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+									className: "text-sm font-medium text-foreground",
+									children: "Razorpay"
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+									className: "mt-1 text-xs text-muted-foreground",
+									children: "Optional. Test keys only — secrets stay in this browser."
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+									className: "mt-3 grid gap-3 sm:grid-cols-2",
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+										value: settings.paymentMethods?.razorpayKeyId || "",
+										onChange: (e) => void saveSettings({ paymentMethods: {
+											...settings.paymentMethods || {},
+											razorpayKeyId: e.target.value
+										} }),
+										placeholder: "rzp_test_xxxxx",
+										"aria-label": "Razorpay Key ID"
+									}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+										type: "password",
+										value: settings.paymentMethods?.razorpayKeySecret || "",
+										onChange: (e) => void saveSettings({ paymentMethods: {
+											...settings.paymentMethods || {},
+											razorpayKeySecret: e.target.value
+										} }),
+										placeholder: "Key secret",
+										"aria-label": "Razorpay Key Secret",
+										autoComplete: "off"
+									})]
+								})
+							]
+						})
+					]
+				})
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionCard, {
+				kicker: "Branding",
+				title: "Logo",
+				blurb: "Appears on invoices, public pages, and PDFs. PNG or JPG under 800KB works best.",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "flex flex-wrap items-center gap-4",
+					children: [
+						settings.logoUrl ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
+							src: settings.logoUrl,
+							alt: "Studio logo",
+							className: "h-12 max-w-28 object-contain"
+						}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+							className: "flex h-12 w-12 items-center justify-center rounded-md bg-secondary text-xs text-muted-foreground",
+							children: "Logo"
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
+							ref: fileRef,
+							type: "file",
+							accept: "image/*",
+							className: "hidden",
+							onChange: (e) => onLogo(e.target.files?.[0])
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							type: "button",
+							variant: "outline",
+							onClick: () => fileRef.current?.click(),
+							children: "Upload logo"
+						}),
+						settings.logoUrl ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							type: "button",
+							variant: "ghost",
+							onClick: () => void saveSettings({ logoUrl: "" }),
+							children: "Remove"
+						}) : null
+					]
+				})
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(McpSection, {
+				isPro,
+				needsSignIn: mcpNeedsSignIn,
+				tokens: mcpTokens,
+				name: mcpName,
+				onNameChange: setMcpName,
+				secret: mcpSecret,
+				onDismissSecret: () => setMcpSecret(null),
+				busy: mcpBusy,
+				onGenerate: () => void onGenerateToken(),
+				onRevoke: (id) => void onRevokeToken(id),
+				onCopy: (value, label) => void copyText(value, label)
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(GiftSection, {
+				isPro,
+				signedIn: authenticated !== false,
+				codes: giftCodes,
+				maxMonths: giftMax,
+				duration: giftDuration,
+				onDurationChange: setGiftDuration,
+				fresh: giftFresh,
+				onDismissFresh: () => setGiftFresh(null),
+				busy: giftBusy,
+				onGenerate: () => void onGenerateGift(),
+				redeemCode,
+				onRedeemCodeChange: setRedeemCode,
+				redeemBusy,
+				onRedeem: () => void onRedeemGift(),
+				onCopy: (value, label) => void copyText(value, label)
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ReferralSection, {
+				referral,
+				signedIn: authenticated !== false
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(SectionCard, {
+				id: "pro",
+				kicker: "Pro workspace",
+				title: "Go Pro",
+				blurb: "Recurring invoices, due-date reminders, and no FormaBill branding. Client money still goes to your own accounts.",
+				children: [
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "flex items-center gap-3",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							className: "rounded-full bg-secondary px-3 py-1 text-xs font-medium",
+							children: isPro ? serverLifetime ? "Pro active · Lifetime" : "Pro active" : "Free plan · 5 invoices/mo"
+						}), isPro && serverLifetime ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "basis-full text-xs text-muted-foreground",
+							children: "Lifetime Pro — no subscription, no renewals, everything unlocked."
+						}) : null]
+					}),
+					!isPro && authenticated === false ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+						type: "button",
+						className: "mt-4 w-full sm:w-auto",
+						asChild: true,
+						children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+							to: "/login",
+							children: "Sign in to get Pro"
+						})
+					}) : null,
+					!isPro && authenticated !== false ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "mt-4 grid gap-2 sm:grid-cols-2",
+						role: "group",
+						"aria-label": "Pro billing period",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+							type: "button",
+							"aria-pressed": plan === "pro_monthly",
+							onClick: () => setPlan("pro_monthly"),
+							className: `rounded-xl border p-4 text-left transition-colors ${plan === "pro_monthly" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/50"}`,
+							children: [
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+									className: "flex items-center justify-between gap-2",
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+										className: "text-sm font-medium",
+										children: "Monthly"
+									}), plan === "pro_monthly" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+										className: "rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground",
+										children: "Selected"
+									}) : null]
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+									className: "mt-1 block font-display text-2xl tracking-tight",
+									children: ["$11", /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+										className: "text-sm text-muted-foreground",
+										children: "/mo"
+									})]
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+									className: "mt-1 block text-xs text-muted-foreground",
+									children: "Flexible, cancel anytime."
+								})
+							]
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+							type: "button",
+							"aria-pressed": plan === "pro_yearly",
+							onClick: () => setPlan("pro_yearly"),
+							className: `rounded-xl border p-4 text-left transition-colors ${plan === "pro_yearly" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/50"}`,
+							children: [
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+									className: "flex items-center justify-between gap-2",
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+										className: "text-sm font-medium",
+										children: "Yearly"
+									}), plan === "pro_yearly" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+										className: "rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground",
+										children: "Selected"
+									}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+										className: "rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800",
+										children: "Save $33"
+									})]
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+									className: "mt-1 block font-display text-2xl tracking-tight",
+									children: ["$99", /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+										className: "text-sm text-muted-foreground",
+										children: "/yr"
+									})]
+								}),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+									className: "mt-1 block text-xs text-muted-foreground",
+									children: "Two months free vs monthly."
+								})
+							]
+						})]
+					}) : null,
+					!isPro && authenticated !== false ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+						type: "button",
+						className: "mt-4 w-full sm:w-auto",
+						disabled: proBusy,
+						onClick: () => void startProCheckout(),
+						children: proBusy ? "Opening checkout…" : plan === "pro_yearly" ? "Get Pro — $99/yr" : "Get Pro — $11/mo"
+					}) : null,
+					!isPro && !platformConfigured ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-3 text-xs text-muted-foreground",
+						children: "Pro checkout is not available yet — your free plan works fully meanwhile."
+					}) : null,
+					!isPro && platformConfigured ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-3 text-xs text-muted-foreground",
+						children: "Secure checkout via Razorpay. Pro is billed by FormaBill; client invoice money still goes to your own accounts."
+					}) : null,
+					isPro ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "mt-5 border-t border-border pt-5",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+							className: "grid gap-1.5",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, { children: "Remind this many days before due" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+								type: "number",
+								min: 1,
+								max: 30,
+								value: settings.reminderDays ?? 3,
+								onChange: (e) => void saveSettings({ reminderDays: Number(e.target.value) })
+							})]
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							className: "mt-4",
+							variant: "outline",
+							disabled: busy,
+							onClick: async () => {
+								setBusy(true);
+								try {
+									const res = await fetch("/api/recurring/process", { method: "POST" });
+									const json = await res.json();
+									if (!res.ok) throw new Error(json.error || "Failed");
+									toast.success(`Generated ${json.generated ?? 0} recurring invoice(s)`);
+								} catch (err) {
+									toast.error(err instanceof Error ? err.message : "Failed");
+								} finally {
+									setBusy(false);
+								}
+							},
+							children: "Process recurring invoices"
+						})]
+					}) : null
+				]
+			})
+		]
+	});
+}
+function McpSection({ isPro, needsSignIn, tokens, name, onNameChange, secret, onDismissSecret, busy, onGenerate, onRevoke, onCopy }) {
+	const serverUrl = typeof window !== "undefined" ? `${window.location.origin}/api/mcp` : "/api/mcp";
+	const [guide, setGuide] = (0, import_react.useState)("claude");
+	const connected = tokens.length > 0;
+	const configSnippet = JSON.stringify({ mcpServers: { formabill: {
+		url: serverUrl,
+		headers: { Authorization: "Bearer <paste-your-token-here>" }
+	} } }, null, 2);
+	if (!isPro) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionCard, {
+		kicker: "AI / MCP",
+		title: "Connect AI assistants",
+		blurb: "Let Claude, Cursor, or another MCP-compatible AI list invoices, draft bills, and mark payments on your behalf.",
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "rounded-lg border border-dashed border-border bg-secondary/40 p-4",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+					className: "text-sm font-medium",
+					children: "Pro feature"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+					className: "mt-1 text-sm text-muted-foreground",
+					children: "AI connection with personal access tokens is available on Pro. Your free plan works fully meanwhile."
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+					type: "button",
+					className: "mt-3",
+					asChild: true,
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", {
+						href: "#pro",
+						children: "See Pro plans"
+					})
+				})
+			]
+		})
+	});
+	if (needsSignIn) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionCard, {
+		kicker: "AI / MCP",
+		title: "Connect AI assistants",
+		blurb: "Let Claude, Cursor, or another MCP-compatible AI act on your account.",
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border p-4",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "text-sm text-muted-foreground",
+				children: "Sign in to manage MCP tokens."
+			}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+				type: "button",
+				asChild: true,
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+					to: "/login",
+					children: "Sign in"
+				})
+			})]
+		})
+	});
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(SectionCard, {
+		kicker: "AI / MCP",
+		title: "Connect AI assistants",
+		blurb: "Tokens act as you: every invoice, client, or setting change is attributed to your account. Keep them secret.",
+		children: [
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+				className: "flex items-center gap-2",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+					className: `inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${connected ? "bg-emerald-100 text-emerald-800" : "bg-secondary text-muted-foreground"}`,
+					role: "status",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+						"aria-hidden": "true",
+						className: `size-1.5 rounded-full ${connected ? "bg-emerald-600" : "bg-muted-foreground"}`
+					}), connected ? `Connected · ${tokens.length} token${tokens.length === 1 ? "" : "s"}` : "Not connected"]
+				})
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+					className: "min-w-0 flex-1 truncate font-mono text-xs",
+					children: serverUrl
+				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+					type: "button",
+					size: "sm",
+					variant: "outline",
+					onClick: () => onCopy(serverUrl, "Server URL"),
+					children: "Copy URL"
+				})]
+			}),
+			secret ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "rounded-lg border border-emerald-200 bg-emerald-50 p-4",
+				children: [
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "text-sm font-medium text-emerald-900",
+						children: "Copy your token now — it won't be shown again"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-2 rounded-md bg-white px-3 py-2 font-mono text-xs break-all text-foreground",
+						children: secret
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "mt-3 flex flex-wrap gap-2",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							type: "button",
+							size: "sm",
+							onClick: () => onCopy(secret, "Token"),
+							children: "Copy token"
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							type: "button",
+							size: "sm",
+							variant: "ghost",
+							onClick: onDismissSecret,
+							children: "I've saved it"
+						})]
+					})
+				]
+			}) : null,
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "mt-4 grid gap-2 sm:grid-cols-[1fr_auto]",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+					value: name,
+					onChange: (e) => onNameChange(e.target.value),
+					placeholder: "Token name, e.g. Claude Desktop",
+					"aria-label": "New token name",
+					maxLength: 80
+				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+					type: "button",
+					disabled: busy,
+					onClick: onGenerate,
+					children: busy ? "Creating…" : "Generate token"
+				})]
+			}),
+			tokens.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", {
+				className: "mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border",
+				children: tokens.map((token) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", {
+					className: "flex flex-wrap items-center gap-3 px-4 py-3",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "min-w-0 flex-1",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "truncate text-sm font-medium",
+							children: token.name
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+							className: "truncate font-mono text-xs text-muted-foreground",
+							children: [
+								token.prefix,
+								"•••• · created ",
+								new Date(token.createdAt).toLocaleDateString(),
+								token.lastUsedAt ? ` · used ${new Date(token.lastUsedAt).toLocaleDateString()}` : " · never used"
+							]
+						})]
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+						type: "button",
+						variant: "ghost",
+						size: "sm",
+						onClick: () => onRevoke(token.id),
+						children: "Revoke"
+					})]
+				}, token.id))
+			}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "mt-4 text-sm text-muted-foreground",
+				children: "No tokens yet. Generate one above to connect your first assistant."
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "mt-4 rounded-lg border border-border p-4",
+				children: [
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "text-sm font-medium",
+						children: "Connect your assistant"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+						className: "mt-3 flex gap-1 rounded-lg bg-secondary/60 p-1",
+						role: "tablist",
+						"aria-label": "AI client guides",
+						children: [
+							{
+								value: "claude",
+								label: "Claude Desktop"
+							},
+							{
+								value: "cursor",
+								label: "Cursor"
+							},
+							{
+								value: "other",
+								label: "Grok & others"
+							}
+						].map((tab) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+							type: "button",
+							role: "tab",
+							"aria-selected": guide === tab.value,
+							onClick: () => setGuide(tab.value),
+							className: `flex-1 cursor-pointer rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${guide === tab.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`,
+							children: tab.label
+						}, tab.value))
+					}),
+					guide === "claude" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("ol", {
+						className: "mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground",
+						children: [
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Generate a token above and copy it." }),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Open Claude Desktop → Settings → Connectors → Add custom connector." }),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Paste the server URL, add header `Authorization` with value `Bearer YOUR_TOKEN`." }),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Ask it to “list my invoices” — revoke the token here anytime to cut access." })
+						]
+					}) : null,
+					guide === "cursor" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("ol", {
+						className: "mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground",
+						children: [
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Generate a token above and copy it." }),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Open Cursor → Settings → MCP → Add custom server (Streamable HTTP)." }),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Paste the server URL and the `Authorization: Bearer YOUR_TOKEN` header." }),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Ask it to “draft an invoice for Acme” — revoke the token here anytime." })
+						]
+					}) : null,
+					guide === "other" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("ol", {
+						className: "mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Generate a token above and copy it." }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "In any MCP-compatible client (Grok, Windsurf, …), add a Streamable-HTTP server with the URL above and an `Authorization: Bearer YOUR_TOKEN` header, or use this config:" })]
+					}) : null,
+					guide === "other" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "relative mt-2",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", {
+							className: "overflow-x-auto rounded-md bg-secondary/60 p-3 font-mono text-xs break-all whitespace-pre-wrap",
+							children: configSnippet
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							type: "button",
+							size: "sm",
+							variant: "outline",
+							className: "absolute top-2 right-2",
+							onClick: () => onCopy(configSnippet, "Config snippet"),
+							children: "Copy"
+						})]
+					}) : null
+				]
+			})
+		]
+	});
+}
+var GIFT_DURATIONS = [
+	1,
+	3,
+	6,
+	12
+];
+function GiftSection({ isPro, signedIn, codes, maxMonths, duration, onDurationChange, fresh, onDismissFresh, busy, onGenerate, redeemCode, onRedeemCodeChange, redeemBusy, onRedeem, onCopy }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(SectionCard, {
+		kicker: "Gift codes",
+		title: "Give Pro to a friend",
+		blurb: "Gift codes unlock Pro for exactly their duration. Yours can gift up to your own plan length.",
+		children: [signedIn && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "grid gap-2 sm:grid-cols-[1fr_auto]",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+				value: redeemCode,
+				onChange: (e) => onRedeemCodeChange(e.target.value),
+				placeholder: "Have a code? Paste it here, e.g. PRO-XXXX-XXXX",
+				"aria-label": "Gift code to redeem",
+				className: "font-mono uppercase"
+			}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+				type: "button",
+				disabled: redeemBusy,
+				onClick: onRedeem,
+				children: redeemBusy ? "Redeeming…" : "Redeem"
+			})]
+		}), !signedIn ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border p-4",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "text-sm text-muted-foreground",
+				children: "Sign in to redeem or create gift codes."
+			}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+				type: "button",
+				asChild: true,
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+					to: "/login",
+					children: "Sign in"
+				})
+			})]
+		}) : !isPro ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "mt-4 rounded-lg border border-dashed border-border bg-secondary/40 p-4",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+					className: "text-sm font-medium",
+					children: "Creating codes is a Pro feature"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+					className: "mt-1 text-sm text-muted-foreground",
+					children: "Upgrade and you can gift 1, 3, 6, or 12 months of Pro — up to your own plan length."
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+					type: "button",
+					className: "mt-3",
+					asChild: true,
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", {
+						href: "#pro",
+						children: "See Pro plans"
+					})
+				})
+			]
+		}) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+			fresh ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4",
+				children: [
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "text-sm font-medium text-emerald-900",
+						children: "Share this code — it works once and expires in 90 days"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-2 rounded-md bg-white px-3 py-2 text-center font-mono text-lg font-semibold tracking-widest text-foreground",
+						children: fresh
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "mt-3 flex flex-wrap gap-2",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							type: "button",
+							size: "sm",
+							onClick: () => onCopy(fresh, "Gift code"),
+							children: "Copy code"
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							type: "button",
+							size: "sm",
+							variant: "ghost",
+							onClick: onDismissFresh,
+							children: "Done"
+						})]
+					})
+				]
+			}) : null,
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "mt-4 grid gap-2 sm:grid-cols-[1fr_auto]",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+					className: "flex flex-wrap items-center gap-2",
+					role: "group",
+					"aria-label": "Gift duration",
+					children: GIFT_DURATIONS.map((months) => {
+						const enabled = months <= maxMonths;
+						const selected = duration === months;
+						return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+							type: "button",
+							disabled: !enabled,
+							"aria-pressed": selected,
+							onClick: () => onDurationChange(months),
+							title: enabled ? `${months}-month gift` : `Needs a ${months}-month (or longer) plan`,
+							className: `cursor-pointer rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary/50"}`,
+							children: [months, " mo"]
+						}, months);
+					})
+				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+					type: "button",
+					disabled: busy,
+					onClick: onGenerate,
+					children: busy ? "Creating…" : "Generate code"
+				})]
+			}),
+			codes.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", {
+				className: "mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border",
+				children: codes.map((gift) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", {
+					className: "flex flex-wrap items-center gap-3 px-4 py-3",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "min-w-0 flex-1",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+								className: "truncate font-mono text-sm font-semibold tracking-wider",
+								children: gift.code
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+								className: "text-xs text-muted-foreground",
+								children: [
+									gift.durationMonths,
+									" month",
+									gift.durationMonths === 1 ? "" : "s",
+									" · expires",
+									" ",
+									new Date(gift.expiresAt).toLocaleDateString(),
+									gift.redeemedAt ? ` · redeemed ${new Date(gift.redeemedAt).toLocaleDateString()}` : ""
+								]
+							})]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							className: `rounded-full px-2.5 py-0.5 text-xs font-medium ${gift.status === "unused" ? "bg-emerald-100 text-emerald-800" : gift.status === "redeemed" ? "bg-secondary text-muted-foreground" : "bg-amber-100 text-amber-800"}`,
+							children: gift.status === "unused" ? "Unused" : gift.status === "redeemed" ? "Redeemed" : "Expired"
+						}),
+						gift.status === "unused" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							type: "button",
+							variant: "ghost",
+							size: "sm",
+							onClick: () => onCopy(gift.code, "Gift code"),
+							children: "Copy"
+						}) : null
+					]
+				}, gift.id))
+			}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "mt-4 text-sm text-muted-foreground",
+				children: "No codes yet. Pick a duration and generate your first gift."
+			})
+		] })]
+	});
+}
+function ReferralSection({ referral, signedIn }) {
+	const link = typeof window !== "undefined" && referral ? `${window.location.origin}/?ref=${referral.code}` : "";
+	if (!signedIn || !referral) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionCard, {
+		kicker: "Referrals",
+		title: "Earn free Pro",
+		blurb: "Share your link. When a friend signs up and goes Pro, you get a free month.",
+		children: !signedIn ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border p-4",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "text-sm text-muted-foreground",
+				children: "Sign in to get your referral link."
+			}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+				type: "button",
+				asChild: true,
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+					to: "/login",
+					children: "Sign in"
+				})
+			})]
+		}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "h-12 animate-pulse rounded-lg bg-muted/60" })
+	});
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(SectionCard, {
+		kicker: "Referrals",
+		title: "Earn free Pro",
+		blurb: "Share your link. When a friend signs up and goes Pro — by paying or redeeming a gift — you get 1 free month, stacked on anything you have.",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "min-w-0 flex-1 truncate font-mono text-xs",
+				children: link
+			}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CopyLinkButton, {
+				value: link,
+				label: "Referral link"
+			})]
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "mt-4 grid grid-cols-3 gap-2 text-center",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "rounded-lg border border-border p-3",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "font-display text-2xl tracking-tight",
+						children: referral.signups
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-0.5 text-xs text-muted-foreground",
+						children: "Signups"
+					})]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "rounded-lg border border-border p-3",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "font-display text-2xl tracking-tight",
+						children: referral.proConversions
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-0.5 text-xs text-muted-foreground",
+						children: "Went Pro"
+					})]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "rounded-lg border border-border p-3",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "font-display text-2xl tracking-tight",
+						children: referral.monthsEarned
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-0.5 text-xs text-muted-foreground",
+						children: "Months earned"
+					})]
+				})
+			]
+		})]
+	});
+}
+function CopyLinkButton({ value, label }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+		type: "button",
+		size: "sm",
+		variant: "outline",
+		onClick: () => {
+			navigator.clipboard.writeText(value).then(() => toast.success(`${label} copied`)).catch(() => toast.error(`Could not copy ${label.toLowerCase()}`));
+		},
+		children: "Copy"
+	});
+}
+function SectionCard({ kicker, title, blurb, children, id }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", {
+		id,
+		className: "mt-6 scroll-mt-24 rounded-xl border border-border bg-card p-6 sm:p-7",
+		children: [
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "text-xs tracking-[0.16em] text-muted-foreground uppercase",
+				children: kicker
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", {
+				className: "mt-1 font-display text-xl tracking-tight",
+				children: title
+			}),
+			blurb ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "mt-1 text-sm text-muted-foreground",
+				children: blurb
+			}) : null,
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+				className: "mt-5",
+				children
+			})
+		]
+	});
+}
+//#endregion
+export { SettingsPage as component };

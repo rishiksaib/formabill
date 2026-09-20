@@ -11,23 +11,33 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ApiAuthStatusRouteImport } from './routes/api/auth-status'
 import { Route as ApiCheckoutRouteImport } from './routes/api/checkout'
+import { Route as ApiGiftCodesRouteImport } from './routes/api/gift-codes'
 import { Route as ApiInvoicesRouteImport } from './routes/api/invoices'
+import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppClientsRouteImport } from './routes/app/clients'
 import { Route as AppInvoicesRouteImport } from './routes/app/invoices'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as InvIdRouteImport } from './routes/inv.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiGiftCodesRedeemRouteImport } from './routes/api/gift-codes/redeem'
 import { Route as ApiInvoicesIdRouteImport } from './routes/api/invoices.$id'
+import { Route as ApiMcpTokensRouteImport } from './routes/api/mcp/tokens'
 import { Route as ApiProCheckoutRouteImport } from './routes/api/pro/checkout'
 import { Route as ApiProStatusRouteImport } from './routes/api/pro/status'
 import { Route as ApiRecurringProcessRouteImport } from './routes/api/recurring/process'
+import { Route as ApiReferralsAttributeRouteImport } from './routes/api/referrals/attribute'
+import { Route as ApiReferralsMineRouteImport } from './routes/api/referrals/mine'
 import { Route as ApiWebhooksRazorpayRouteImport } from './routes/api/webhooks/razorpay'
 import { Route as ApiWebhooksRazorpayPlatformRouteImport } from './routes/api/webhooks/razorpay-platform'
+import { Route as ApiMcpTokensIdRouteImport } from './routes/api/mcp/tokens.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -49,9 +64,19 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthStatusRoute = ApiAuthStatusRouteImport.update({
+  id: '/api/auth-status',
+  path: '/api/auth-status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCheckoutRoute = ApiCheckoutRouteImport.update({
@@ -59,9 +84,19 @@ const ApiCheckoutRoute = ApiCheckoutRouteImport.update({
   path: '/api/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGiftCodesRoute = ApiGiftCodesRouteImport.update({
+  id: '/api/gift-codes',
+  path: '/api/gift-codes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiInvoicesRoute = ApiInvoicesRouteImport.update({
   id: '/api/invoices',
   path: '/api/invoices',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMcpRoute = ApiMcpRouteImport.update({
+  id: '/api/mcp',
+  path: '/api/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -94,10 +129,20 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGiftCodesRedeemRoute = ApiGiftCodesRedeemRouteImport.update({
+  id: '/redeem',
+  path: '/redeem',
+  getParentRoute: () => ApiGiftCodesRoute,
+} as any)
 const ApiInvoicesIdRoute = ApiInvoicesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => ApiInvoicesRoute,
+} as any)
+const ApiMcpTokensRoute = ApiMcpTokensRouteImport.update({
+  id: '/tokens',
+  path: '/tokens',
+  getParentRoute: () => ApiMcpRoute,
 } as any)
 const ApiProCheckoutRoute = ApiProCheckoutRouteImport.update({
   id: '/api/pro/checkout',
@@ -114,6 +159,16 @@ const ApiRecurringProcessRoute = ApiRecurringProcessRouteImport.update({
   path: '/api/recurring/process',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReferralsAttributeRoute = ApiReferralsAttributeRouteImport.update({
+  id: '/api/referrals/attribute',
+  path: '/api/referrals/attribute',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReferralsMineRoute = ApiReferralsMineRouteImport.update({
+  id: '/api/referrals/mine',
+  path: '/api/referrals/mine',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksRazorpayRoute = ApiWebhooksRazorpayRouteImport.update({
   id: '/api/webhooks/razorpay',
   path: '/api/webhooks/razorpay',
@@ -125,148 +180,220 @@ const ApiWebhooksRazorpayPlatformRoute =
     path: '/api/webhooks/razorpay-platform',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiMcpTokensIdRoute = ApiMcpTokensIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiMcpTokensRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/api/auth-status': typeof ApiAuthStatusRoute
   '/api/checkout': typeof ApiCheckoutRoute
+  '/api/gift-codes': typeof ApiGiftCodesRouteWithChildren
   '/api/invoices': typeof ApiInvoicesRouteWithChildren
+  '/api/mcp': typeof ApiMcpRouteWithChildren
   '/app/clients': typeof AppClientsRoute
   '/app/invoices': typeof AppInvoicesRoute
   '/app/settings': typeof AppSettingsRoute
   '/inv/$id': typeof InvIdRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/gift-codes/redeem': typeof ApiGiftCodesRedeemRoute
   '/api/invoices/$id': typeof ApiInvoicesIdRoute
+  '/api/mcp/tokens': typeof ApiMcpTokensRouteWithChildren
   '/api/pro/checkout': typeof ApiProCheckoutRoute
   '/api/pro/status': typeof ApiProStatusRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
+  '/api/referrals/attribute': typeof ApiReferralsAttributeRoute
+  '/api/referrals/mine': typeof ApiReferralsMineRoute
   '/api/webhooks/razorpay': typeof ApiWebhooksRazorpayRoute
   '/api/webhooks/razorpay-platform': typeof ApiWebhooksRazorpayPlatformRoute
+  '/api/mcp/tokens/$id': typeof ApiMcpTokensIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/api/auth-status': typeof ApiAuthStatusRoute
   '/api/checkout': typeof ApiCheckoutRoute
+  '/api/gift-codes': typeof ApiGiftCodesRouteWithChildren
   '/api/invoices': typeof ApiInvoicesRouteWithChildren
+  '/api/mcp': typeof ApiMcpRouteWithChildren
   '/app/clients': typeof AppClientsRoute
   '/app/invoices': typeof AppInvoicesRoute
   '/app/settings': typeof AppSettingsRoute
   '/inv/$id': typeof InvIdRoute
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/gift-codes/redeem': typeof ApiGiftCodesRedeemRoute
   '/api/invoices/$id': typeof ApiInvoicesIdRoute
+  '/api/mcp/tokens': typeof ApiMcpTokensRouteWithChildren
   '/api/pro/checkout': typeof ApiProCheckoutRoute
   '/api/pro/status': typeof ApiProStatusRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
+  '/api/referrals/attribute': typeof ApiReferralsAttributeRoute
+  '/api/referrals/mine': typeof ApiReferralsMineRoute
   '/api/webhooks/razorpay': typeof ApiWebhooksRazorpayRoute
   '/api/webhooks/razorpay-platform': typeof ApiWebhooksRazorpayPlatformRoute
+  '/api/mcp/tokens/$id': typeof ApiMcpTokensIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/api/auth-status': typeof ApiAuthStatusRoute
   '/api/checkout': typeof ApiCheckoutRoute
+  '/api/gift-codes': typeof ApiGiftCodesRouteWithChildren
   '/api/invoices': typeof ApiInvoicesRouteWithChildren
+  '/api/mcp': typeof ApiMcpRouteWithChildren
   '/app/clients': typeof AppClientsRoute
   '/app/invoices': typeof AppInvoicesRoute
   '/app/settings': typeof AppSettingsRoute
   '/inv/$id': typeof InvIdRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/gift-codes/redeem': typeof ApiGiftCodesRedeemRoute
   '/api/invoices/$id': typeof ApiInvoicesIdRoute
+  '/api/mcp/tokens': typeof ApiMcpTokensRouteWithChildren
   '/api/pro/checkout': typeof ApiProCheckoutRoute
   '/api/pro/status': typeof ApiProStatusRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
+  '/api/referrals/attribute': typeof ApiReferralsAttributeRoute
+  '/api/referrals/mine': typeof ApiReferralsMineRoute
   '/api/webhooks/razorpay': typeof ApiWebhooksRazorpayRoute
   '/api/webhooks/razorpay-platform': typeof ApiWebhooksRazorpayPlatformRoute
+  '/api/mcp/tokens/$id': typeof ApiMcpTokensIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/app'
+    | '/forgot-password'
     | '/login'
     | '/privacy'
+    | '/reset-password'
     | '/terms'
+    | '/api/auth-status'
     | '/api/checkout'
+    | '/api/gift-codes'
     | '/api/invoices'
+    | '/api/mcp'
     | '/app/clients'
     | '/app/invoices'
     | '/app/settings'
     | '/inv/$id'
     | '/app/'
     | '/api/auth/$'
+    | '/api/gift-codes/redeem'
     | '/api/invoices/$id'
+    | '/api/mcp/tokens'
     | '/api/pro/checkout'
     | '/api/pro/status'
     | '/api/recurring/process'
+    | '/api/referrals/attribute'
+    | '/api/referrals/mine'
     | '/api/webhooks/razorpay'
     | '/api/webhooks/razorpay-platform'
+    | '/api/mcp/tokens/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/forgot-password'
     | '/login'
     | '/privacy'
+    | '/reset-password'
     | '/terms'
+    | '/api/auth-status'
     | '/api/checkout'
+    | '/api/gift-codes'
     | '/api/invoices'
+    | '/api/mcp'
     | '/app/clients'
     | '/app/invoices'
     | '/app/settings'
     | '/inv/$id'
     | '/app'
     | '/api/auth/$'
+    | '/api/gift-codes/redeem'
     | '/api/invoices/$id'
+    | '/api/mcp/tokens'
     | '/api/pro/checkout'
     | '/api/pro/status'
     | '/api/recurring/process'
+    | '/api/referrals/attribute'
+    | '/api/referrals/mine'
     | '/api/webhooks/razorpay'
     | '/api/webhooks/razorpay-platform'
+    | '/api/mcp/tokens/$id'
   id:
     | '__root__'
     | '/'
     | '/app'
+    | '/forgot-password'
     | '/login'
     | '/privacy'
+    | '/reset-password'
     | '/terms'
+    | '/api/auth-status'
     | '/api/checkout'
+    | '/api/gift-codes'
     | '/api/invoices'
+    | '/api/mcp'
     | '/app/clients'
     | '/app/invoices'
     | '/app/settings'
     | '/inv/$id'
     | '/app/'
     | '/api/auth/$'
+    | '/api/gift-codes/redeem'
     | '/api/invoices/$id'
+    | '/api/mcp/tokens'
     | '/api/pro/checkout'
     | '/api/pro/status'
     | '/api/recurring/process'
+    | '/api/referrals/attribute'
+    | '/api/referrals/mine'
     | '/api/webhooks/razorpay'
     | '/api/webhooks/razorpay-platform'
+    | '/api/mcp/tokens/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
+  ApiAuthStatusRoute: typeof ApiAuthStatusRoute
   ApiCheckoutRoute: typeof ApiCheckoutRoute
+  ApiGiftCodesRoute: typeof ApiGiftCodesRouteWithChildren
   ApiInvoicesRoute: typeof ApiInvoicesRouteWithChildren
+  ApiMcpRoute: typeof ApiMcpRouteWithChildren
   InvIdRoute: typeof InvIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiProCheckoutRoute: typeof ApiProCheckoutRoute
   ApiProStatusRoute: typeof ApiProStatusRoute
   ApiRecurringProcessRoute: typeof ApiRecurringProcessRoute
+  ApiReferralsAttributeRoute: typeof ApiReferralsAttributeRoute
+  ApiReferralsMineRoute: typeof ApiReferralsMineRoute
   ApiWebhooksRazorpayRoute: typeof ApiWebhooksRazorpayRoute
   ApiWebhooksRazorpayPlatformRoute: typeof ApiWebhooksRazorpayPlatformRoute
 }
@@ -287,6 +414,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -301,11 +435,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth-status': {
+      id: '/api/auth-status'
+      path: '/api/auth-status'
+      fullPath: '/api/auth-status'
+      preLoaderRoute: typeof ApiAuthStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/checkout': {
@@ -315,11 +463,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/gift-codes': {
+      id: '/api/gift-codes'
+      path: '/api/gift-codes'
+      fullPath: '/api/gift-codes'
+      preLoaderRoute: typeof ApiGiftCodesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/invoices': {
       id: '/api/invoices'
       path: '/api/invoices'
       fullPath: '/api/invoices'
       preLoaderRoute: typeof ApiInvoicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mcp': {
+      id: '/api/mcp'
+      path: '/api/mcp'
+      fullPath: '/api/mcp'
+      preLoaderRoute: typeof ApiMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -364,12 +526,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/gift-codes/redeem': {
+      id: '/api/gift-codes/redeem'
+      path: '/redeem'
+      fullPath: '/api/gift-codes/redeem'
+      preLoaderRoute: typeof ApiGiftCodesRedeemRouteImport
+      parentRoute: typeof ApiGiftCodesRoute
+    }
     '/api/invoices/$id': {
       id: '/api/invoices/$id'
       path: '/$id'
       fullPath: '/api/invoices/$id'
       preLoaderRoute: typeof ApiInvoicesIdRouteImport
       parentRoute: typeof ApiInvoicesRoute
+    }
+    '/api/mcp/tokens': {
+      id: '/api/mcp/tokens'
+      path: '/tokens'
+      fullPath: '/api/mcp/tokens'
+      preLoaderRoute: typeof ApiMcpTokensRouteImport
+      parentRoute: typeof ApiMcpRoute
     }
     '/api/pro/checkout': {
       id: '/api/pro/checkout'
@@ -392,6 +568,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRecurringProcessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/referrals/attribute': {
+      id: '/api/referrals/attribute'
+      path: '/api/referrals/attribute'
+      fullPath: '/api/referrals/attribute'
+      preLoaderRoute: typeof ApiReferralsAttributeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/referrals/mine': {
+      id: '/api/referrals/mine'
+      path: '/api/referrals/mine'
+      fullPath: '/api/referrals/mine'
+      preLoaderRoute: typeof ApiReferralsMineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/razorpay': {
       id: '/api/webhooks/razorpay'
       path: '/api/webhooks/razorpay'
@@ -405,6 +595,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/webhooks/razorpay-platform'
       preLoaderRoute: typeof ApiWebhooksRazorpayPlatformRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/mcp/tokens/$id': {
+      id: '/api/mcp/tokens/$id'
+      path: '/$id'
+      fullPath: '/api/mcp/tokens/$id'
+      preLoaderRoute: typeof ApiMcpTokensIdRouteImport
+      parentRoute: typeof ApiMcpTokensRoute
     }
   }
 }
@@ -425,6 +622,18 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface ApiGiftCodesRouteChildren {
+  ApiGiftCodesRedeemRoute: typeof ApiGiftCodesRedeemRoute
+}
+
+const ApiGiftCodesRouteChildren: ApiGiftCodesRouteChildren = {
+  ApiGiftCodesRedeemRoute: ApiGiftCodesRedeemRoute,
+}
+
+const ApiGiftCodesRouteWithChildren = ApiGiftCodesRoute._addFileChildren(
+  ApiGiftCodesRouteChildren,
+)
+
 interface ApiInvoicesRouteChildren {
   ApiInvoicesIdRoute: typeof ApiInvoicesIdRoute
 }
@@ -437,19 +646,49 @@ const ApiInvoicesRouteWithChildren = ApiInvoicesRoute._addFileChildren(
   ApiInvoicesRouteChildren,
 )
 
+interface ApiMcpTokensRouteChildren {
+  ApiMcpTokensIdRoute: typeof ApiMcpTokensIdRoute
+}
+
+const ApiMcpTokensRouteChildren: ApiMcpTokensRouteChildren = {
+  ApiMcpTokensIdRoute: ApiMcpTokensIdRoute,
+}
+
+const ApiMcpTokensRouteWithChildren = ApiMcpTokensRoute._addFileChildren(
+  ApiMcpTokensRouteChildren,
+)
+
+interface ApiMcpRouteChildren {
+  ApiMcpTokensRoute: typeof ApiMcpTokensRouteWithChildren
+}
+
+const ApiMcpRouteChildren: ApiMcpRouteChildren = {
+  ApiMcpTokensRoute: ApiMcpTokensRouteWithChildren,
+}
+
+const ApiMcpRouteWithChildren =
+  ApiMcpRoute._addFileChildren(ApiMcpRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
+  ApiAuthStatusRoute: ApiAuthStatusRoute,
   ApiCheckoutRoute: ApiCheckoutRoute,
+  ApiGiftCodesRoute: ApiGiftCodesRouteWithChildren,
   ApiInvoicesRoute: ApiInvoicesRouteWithChildren,
+  ApiMcpRoute: ApiMcpRouteWithChildren,
   InvIdRoute: InvIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiProCheckoutRoute: ApiProCheckoutRoute,
   ApiProStatusRoute: ApiProStatusRoute,
   ApiRecurringProcessRoute: ApiRecurringProcessRoute,
+  ApiReferralsAttributeRoute: ApiReferralsAttributeRoute,
+  ApiReferralsMineRoute: ApiReferralsMineRoute,
   ApiWebhooksRazorpayRoute: ApiWebhooksRazorpayRoute,
   ApiWebhooksRazorpayPlatformRoute: ApiWebhooksRazorpayPlatformRoute,
 }

@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/terms")({
   component: TermsPage,
@@ -10,7 +11,15 @@ function TermsPage() {
   return (
     <main className="min-h-dvh bg-background px-5 py-10 sm:px-8 sm:py-16">
       <article className="mx-auto max-w-3xl rounded-xl border border-border bg-card p-6 shadow-paper sm:p-10">
-        <Link to="/" className="font-display text-xl">FormaBill</Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link to="/" className="font-display text-xl">FormaBill</Link>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" /> Back to FormaBill
+          </Link>
+        </div>
         <p className="mt-10 text-xs tracking-[0.16em] text-muted-foreground uppercase">Legal</p>
         <h1 className="mt-2 font-display text-4xl">Terms of use</h1>
         <p className="mt-3 text-sm text-muted-foreground">Last updated September 20, 2026</p>

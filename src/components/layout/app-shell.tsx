@@ -1,10 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { FileText, Plus, Settings, Users } from "lucide-react";
+import { FileText, LogIn, Plus, Settings, Users } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { WaitlistModal } from "@/components/auth/waitlist-modal";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
-import { authConfigured } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 
 const NAV = [
@@ -17,6 +17,41 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const { user, isPending } = useCurrentUserState();
+
+  // Attribute a stored referral code once per signed-in account.
+  useEffect(() => {
+    if (isPending || !user || user.isDevFallback) return;
+    let code: string | null = null;
+    try {
+      code = window.localStorage.getItem("formabill-ref");
+    } catch {
+      return;
+    }
+    if (!code) return;
+    void fetch("/api/referrals/attribute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    })
+      .then((response) => {
+        // Clear on success or definitive rejection (unknown/self/already);
+        // keep it only on transport/rate-limit failure so it retries next visit.
+        if (response.ok || response.status === 400 || response.status === 401) {
+          try {
+            window.localStorage.removeItem("formabill-ref");
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+      .catch(() => undefined);
+  }, [isPending, user]);
+
+  const showSignIn = !isPending && !user;
+  // Auth fully disabled (dev fallback user): sign-in is meaningless — keep the
+  // honest "soon" waitlist entry point instead of a fake login.
+  const showWaitlist = !isPending && Boolean(user?.isDevFallback);
 
   return (
     <div className="min-h-dvh bg-background">
@@ -46,7 +81,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
-            {!authConfigured && (
+            {showSignIn && (
+              <Button variant="ghost" size="sm" className="ml-2" asChild>
+                <Link to="/login">
+                  <LogIn className="size-4" />
+                  <span className="hidden sm:inline">Sign in</span>
+                </Link>
+              </Button>
+            )}
+            {showWaitlist && (
               <Button variant="ghost" size="sm" className="ml-2" onClick={() => setWaitlistOpen(true)}>
                 Sign in for sync &amp; Pro — soon
               </Button>
