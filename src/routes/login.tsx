@@ -154,12 +154,14 @@ function LoginPage() {
               <div className="grid gap-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="login-password">Password</Label>
-                  <Link
-                    to="/forgot-password"
-                    className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-                  >
-                    Forgot password?
-                  </Link>
+                  {mode === "sign-in" ? (
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                    >
+                      Forgot password?
+                    </Link>
+                  ) : null}
                 </div>
                 <div className="relative">
                   <Input

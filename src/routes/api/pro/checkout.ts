@@ -12,9 +12,14 @@ export const Route = createFileRoute("/api/pro/checkout")({
           // webhook can flip their own user record. Free-tier invoice flows
           // stay anonymous; this one never does.
           const userId = await requireRequestUserId();
-          const body = (await request.json().catch(() => ({}))) as { plan?: unknown };
+          const body = (await request.json().catch(() => ({}))) as {
+            plan?: unknown;
+            method?: unknown;
+          };
           const plan = isProPlan(body.plan) ? body.plan : "pro_monthly";
-          const checkout = await createPlatformProCheckout(userId, request, plan);
+          // Modal (Orders API) by default; hosted link only as an explicit fallback.
+          const method = body.method === "link" ? "link" : "modal";
+          const checkout = await createPlatformProCheckout(userId, request, plan, method);
           return Response.json(checkout, { status: checkout.configured ? 200 : 503 });
         } catch (error) {
           if (error instanceof UnauthorizedError) {

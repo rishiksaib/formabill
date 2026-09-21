@@ -32,6 +32,7 @@ import { Route as ApiInvoicesIdRouteImport } from './routes/api/invoices.$id'
 import { Route as ApiMcpTokensRouteImport } from './routes/api/mcp/tokens'
 import { Route as ApiProCheckoutRouteImport } from './routes/api/pro/checkout'
 import { Route as ApiProStatusRouteImport } from './routes/api/pro/status'
+import { Route as ApiProVerifyRouteImport } from './routes/api/pro/verify'
 import { Route as ApiRecurringProcessRouteImport } from './routes/api/recurring/process'
 import { Route as ApiReferralsAttributeRouteImport } from './routes/api/referrals/attribute'
 import { Route as ApiReferralsMineRouteImport } from './routes/api/referrals/mine'
@@ -154,6 +155,11 @@ const ApiProStatusRoute = ApiProStatusRouteImport.update({
   path: '/api/pro/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProVerifyRoute = ApiProVerifyRouteImport.update({
+  id: '/api/pro/verify',
+  path: '/api/pro/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRecurringProcessRoute = ApiRecurringProcessRouteImport.update({
   id: '/api/recurring/process',
   path: '/api/recurring/process',
@@ -210,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/api/mcp/tokens': typeof ApiMcpTokensRouteWithChildren
   '/api/pro/checkout': typeof ApiProCheckoutRoute
   '/api/pro/status': typeof ApiProStatusRoute
+  '/api/pro/verify': typeof ApiProVerifyRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
   '/api/referrals/attribute': typeof ApiReferralsAttributeRoute
   '/api/referrals/mine': typeof ApiReferralsMineRoute
@@ -240,6 +247,7 @@ export interface FileRoutesByTo {
   '/api/mcp/tokens': typeof ApiMcpTokensRouteWithChildren
   '/api/pro/checkout': typeof ApiProCheckoutRoute
   '/api/pro/status': typeof ApiProStatusRoute
+  '/api/pro/verify': typeof ApiProVerifyRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
   '/api/referrals/attribute': typeof ApiReferralsAttributeRoute
   '/api/referrals/mine': typeof ApiReferralsMineRoute
@@ -272,6 +280,7 @@ export interface FileRoutesById {
   '/api/mcp/tokens': typeof ApiMcpTokensRouteWithChildren
   '/api/pro/checkout': typeof ApiProCheckoutRoute
   '/api/pro/status': typeof ApiProStatusRoute
+  '/api/pro/verify': typeof ApiProVerifyRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
   '/api/referrals/attribute': typeof ApiReferralsAttributeRoute
   '/api/referrals/mine': typeof ApiReferralsMineRoute
@@ -305,6 +314,7 @@ export interface FileRouteTypes {
     | '/api/mcp/tokens'
     | '/api/pro/checkout'
     | '/api/pro/status'
+    | '/api/pro/verify'
     | '/api/recurring/process'
     | '/api/referrals/attribute'
     | '/api/referrals/mine'
@@ -335,6 +345,7 @@ export interface FileRouteTypes {
     | '/api/mcp/tokens'
     | '/api/pro/checkout'
     | '/api/pro/status'
+    | '/api/pro/verify'
     | '/api/recurring/process'
     | '/api/referrals/attribute'
     | '/api/referrals/mine'
@@ -366,6 +377,7 @@ export interface FileRouteTypes {
     | '/api/mcp/tokens'
     | '/api/pro/checkout'
     | '/api/pro/status'
+    | '/api/pro/verify'
     | '/api/recurring/process'
     | '/api/referrals/attribute'
     | '/api/referrals/mine'
@@ -391,6 +403,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiProCheckoutRoute: typeof ApiProCheckoutRoute
   ApiProStatusRoute: typeof ApiProStatusRoute
+  ApiProVerifyRoute: typeof ApiProVerifyRoute
   ApiRecurringProcessRoute: typeof ApiRecurringProcessRoute
   ApiReferralsAttributeRoute: typeof ApiReferralsAttributeRoute
   ApiReferralsMineRoute: typeof ApiReferralsMineRoute
@@ -561,6 +574,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pro/verify': {
+      id: '/api/pro/verify'
+      path: '/api/pro/verify'
+      fullPath: '/api/pro/verify'
+      preLoaderRoute: typeof ApiProVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/recurring/process': {
       id: '/api/recurring/process'
       path: '/api/recurring/process'
@@ -686,6 +706,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiProCheckoutRoute: ApiProCheckoutRoute,
   ApiProStatusRoute: ApiProStatusRoute,
+  ApiProVerifyRoute: ApiProVerifyRoute,
   ApiRecurringProcessRoute: ApiRecurringProcessRoute,
   ApiReferralsAttributeRoute: ApiReferralsAttributeRoute,
   ApiReferralsMineRoute: ApiReferralsMineRoute,

@@ -2,13 +2,25 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "@/lib/env.server";
 import { appBaseUrl } from "@/lib/razorpay.server";
 
-export type PlatformCheckout = {
-  configured: boolean;
-  id?: string;
-  shortUrl?: string;
-  plan?: ProPlan;
-  message?: string;
-};
+export type PlatformCheckout =
+  | {
+      configured: true;
+      method: "modal";
+      orderId: string;
+      /** Public Key ID only — the secret never leaves the server. */
+      keyId: string;
+      amount: number;
+      currency: string;
+      plan: ProPlan;
+    }
+  | {
+      configured: true;
+      method: "link";
+      id?: string;
+      shortUrl?: string;
+      plan: ProPlan;
+    }
+  | { configured: false; plan: ProPlan; message?: string };
 
 /** Pro subscription plans, billed to FormaBill (platform revenue). Amounts in USD cents. */
 export const PRO_PLANS = {
@@ -32,27 +44,98 @@ export function platformBillingConfigured(): boolean {
   return platformCredentials() !== null;
 }
 
-export async function createPlatformProCheckout(
+/**
+ * Amounts are USD cents (1100 = $11.00, 9900 = $99.00) — Razorpay's smallest
+ * unit for USD, mirroring paise for INR. Receipts tie the order to the buyer.
+ */
+function proReceipt(userId: string, plan: ProPlan): string {
+  const safe = userId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "user";
+  return `fb-pro-${plan}-${safe}-${Date.now().toString(36)}`.slice(0, 64);
+}
+
+function platformAuthHeader(): {
+  credentials: { keyId: string; keySecret: string };
+  auth: string;
+} | null {
+  const credentials = platformCredentials();
+  if (!credentials) return null;
+  return {
+    credentials,
+    auth: `Basic ${Buffer.from(`${credentials.keyId}:${credentials.keySecret}`).toString("base64")}`,
+  };
+}
+
+/**
+ * Create a Razorpay **Order** for the in-app Checkout modal. Returns only the
+ * public Key ID — the secret never leaves the server.
+ */
+export async function createPlatformProOrder(
   userId: string,
-  request: Request,
   plan: ProPlan = "pro_monthly",
 ): Promise<PlatformCheckout> {
   const selected = PRO_PLANS[plan] ?? PRO_PLANS.pro_monthly;
-  const credentials = platformCredentials();
-  if (!credentials) {
+  const header = platformAuthHeader();
+  if (!header) {
     return {
       configured: false,
       plan,
       message: "Pro checkout is not configured yet. Add the platform Razorpay test keys.",
     };
   }
+  const response = await fetch("https://api.razorpay.com/v1/orders", {
+    method: "POST",
+    headers: {
+      Authorization: header.auth,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: selected.amount,
+      currency: "USD",
+      receipt: proReceipt(userId, plan),
+      notes: { userId, plan, product: "formabill-pro" },
+    }),
+  });
+  const json = (await response.json()) as {
+    id?: string;
+    error?: { description?: string };
+  };
+  if (!response.ok || !json.id) {
+    throw new Error(json.error?.description || "Could not create the FormaBill Pro order.");
+  }
+  return {
+    configured: true,
+    method: "modal",
+    orderId: json.id,
+    keyId: header.credentials.keyId,
+    amount: selected.amount,
+    currency: "USD",
+    plan,
+  };
+}
 
+/**
+ * Fallback: hosted Payment Link (full-page redirect) for when Checkout.js
+ * cannot load. Kept separate so the modal path never touches link plumbing.
+ */
+export async function createPlatformProLink(
+  userId: string,
+  request: Request,
+  plan: ProPlan = "pro_monthly",
+): Promise<PlatformCheckout> {
+  const selected = PRO_PLANS[plan] ?? PRO_PLANS.pro_monthly;
+  const header = platformAuthHeader();
+  if (!header) {
+    return {
+      configured: false,
+      plan,
+      message: "Pro checkout is not configured yet. Add the platform Razorpay test keys.",
+    };
+  }
   const baseUrl = appBaseUrl(request);
-  const auth = Buffer.from(`${credentials.keyId}:${credentials.keySecret}`).toString("base64");
   const response = await fetch("https://api.razorpay.com/v1/payment_links", {
     method: "POST",
     headers: {
-      Authorization: `Basic ${auth}`,
+      Authorization: header.auth,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -74,7 +157,69 @@ export async function createPlatformProCheckout(
   if (!response.ok || !json.short_url) {
     throw new Error(json.error?.description || "Could not create the FormaBill Pro checkout link.");
   }
-  return { configured: true, id: json.id, shortUrl: json.short_url, plan };
+  return { configured: true, method: "link", id: json.id, shortUrl: json.short_url, plan };
+}
+
+export async function createPlatformProCheckout(
+  userId: string,
+  request: Request,
+  plan: ProPlan = "pro_monthly",
+  method: "modal" | "link" = "modal",
+): Promise<PlatformCheckout> {
+  if (method === "link") return createPlatformProLink(userId, request, plan);
+  return createPlatformProOrder(userId, plan);
+}
+
+export type PlatformOrderNotes = {
+  userId?: string;
+  plan?: string;
+};
+
+/** Fetch an order's notes from Razorpay (server-side, secret stays here). */
+export async function fetchPlatformOrderNotes(orderId: string): Promise<PlatformOrderNotes | null> {
+  const header = platformAuthHeader();
+  if (!header) return null;
+  try {
+    const response = await fetch(
+      `https://api.razorpay.com/v1/orders/${encodeURIComponent(orderId)}`,
+      { headers: { Authorization: header.auth } },
+    );
+    if (!response.ok) return null;
+    const json = (await response.json()) as { notes?: PlatformOrderNotes };
+    return json.notes ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verify a Checkout payment server-side: HMAC-SHA256(order_id|payment_id)
+ * with the platform secret. Returns the buyer + plan when valid.
+ */
+export async function verifyPlatformPayment(
+  userId: string,
+  orderId: string,
+  paymentId: string,
+  signature: string,
+): Promise<{ userId: string; plan: ProPlan } | null> {
+  const credentials = platformCredentials();
+  if (!credentials || !orderId || !paymentId || !signature) return null;
+  const expected = createHmac("sha256", credentials.keySecret)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+  let valid = false;
+  try {
+    const a = Buffer.from(expected);
+    const b = Buffer.from(signature);
+    valid = a.length === b.length && timingSafeEqual(a, b);
+  } catch {
+    valid = false;
+  }
+  if (!valid) return null;
+  const notes = await fetchPlatformOrderNotes(orderId);
+  if (!notes?.userId || notes.userId !== userId) return null;
+  const plan: ProPlan = notes.plan === "pro_yearly" ? "pro_yearly" : "pro_monthly";
+  return { userId, plan };
 }
 
 export function verifyPlatformWebhookSignature(rawBody: string, signature: string | null): boolean {

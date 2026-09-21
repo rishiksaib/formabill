@@ -193,15 +193,82 @@ function SettingsPage() {
 
   if (!ready) return <div className="h-64 animate-pulse rounded-xl bg-muted/60" />;
 
+  type RazorpayCheckoutOptions = {
+    key: string;
+    amount: number;
+    currency: string;
+    name: string;
+    description: string;
+    order_id: string;
+    prefill?: { name?: string; email?: string };
+    theme?: { color?: string };
+    modal?: { ondismiss?: () => void };
+    handler?: (response: {
+      razorpay_payment_id: string;
+      razorpay_order_id: string;
+      razorpay_signature: string;
+    }) => void;
+  };
+  type RazorpayCheckoutInstance = {
+    open: () => void;
+    on: (event: string, handler: (response: { error?: { description?: string } }) => void) => void;
+  };
+
+  const loadRazorpayCheckoutJs = (): Promise<boolean> => {
+    const globalWindow = window as unknown as {
+      Razorpay?: new (options: RazorpayCheckoutOptions) => RazorpayCheckoutInstance;
+      __fbRazorpayPromise?: Promise<boolean>;
+    };
+    if (typeof globalWindow.Razorpay !== "undefined") return Promise.resolve(true);
+    globalWindow.__fbRazorpayPromise ??= new Promise<boolean>((resolve) => {
+      const timer = window.setTimeout(() => resolve(false), 12000);
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => {
+        window.clearTimeout(timer);
+        resolve(typeof globalWindow.Razorpay !== "undefined");
+      };
+      script.onerror = () => {
+        window.clearTimeout(timer);
+        resolve(false);
+      };
+      document.head.appendChild(script);
+    });
+    return globalWindow.__fbRazorpayPromise;
+  };
+
+  const openProFallbackLink = async () => {
+    const response = await fetch("/api/pro/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan, method: "link" }),
+    });
+    const json = (await response.json()) as { shortUrl?: string; error?: string; message?: string };
+    if (!response.ok || !json.shortUrl) {
+      throw new Error(json.error || json.message || "Pro checkout is unavailable");
+    }
+    window.location.href = json.shortUrl;
+  };
+
   const startProCheckout = async () => {
     setProBusy(true);
     try {
       const response = await fetch("/api/pro/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, method: "modal" }),
       });
-      const json = (await response.json()) as { shortUrl?: string; error?: string; message?: string };
+      const json = (await response.json()) as {
+        configured?: boolean;
+        method?: string;
+        orderId?: string;
+        keyId?: string;
+        amount?: number;
+        currency?: string;
+        error?: string;
+        message?: string;
+      };
       if (response.status === 401) {
         toast.message("Sign in to get Pro", {
           description: "Checkout links to your account so we can activate it.",
@@ -209,11 +276,71 @@ function SettingsPage() {
         await navigate({ to: "/login" });
         return;
       }
-      if (!response.ok || !json.shortUrl) throw new Error(json.error || json.message || "Pro checkout is unavailable");
-      window.location.href = json.shortUrl;
+      if (
+        !response.ok ||
+        !json.configured ||
+        json.method !== "modal" ||
+        !json.orderId ||
+        !json.keyId ||
+        typeof json.amount !== "number" ||
+        !json.currency
+      ) {
+        throw new Error(json.error || json.message || "Pro checkout is unavailable");
+      }
+      // In-app overlay (stays on /app/settings). Hosted link only as fallback.
+      const loaded = await loadRazorpayCheckoutJs();
+      if (!loaded) {
+        toast.message("Checkout couldn't load", {
+          description: "Opening the secure hosted page instead.",
+        });
+        await openProFallbackLink();
+        return;
+      }
+      const Razorpay = (window as unknown as NonNullable<typeof globalThis> & {
+        Razorpay: new (options: RazorpayCheckoutOptions) => RazorpayCheckoutInstance;
+      }).Razorpay;
+      const checkout = new Razorpay({
+        key: json.keyId,
+        amount: json.amount,
+        currency: json.currency,
+        name: "FormaBill Pro",
+        description: plan === "pro_yearly" ? "Pro Yearly — $99/yr" : "Pro Monthly — $11/mo",
+        order_id: json.orderId,
+        prefill: {
+          name: settings.name || undefined,
+          email: settings.email || undefined,
+        },
+        theme: { color: "#1C3D36" },
+        modal: {
+          ondismiss: () => {
+            setProBusy(false);
+          },
+        },
+        handler: (rzpResponse) => {
+          // Fast activation attempt; the webhook stays authoritative and the
+          // ?pro=success landing re-checks either way.
+          void fetch("/api/pro/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId: rzpResponse.razorpay_order_id,
+              paymentId: rzpResponse.razorpay_payment_id,
+              signature: rzpResponse.razorpay_signature,
+            }),
+          }).catch(() => undefined);
+          toast.message("Payment received", {
+            description: "Activating your Pro workspace…",
+          });
+          window.location.href = "/app/settings?pro=success";
+        },
+      });
+      checkout.on("payment.failed", (failed) => {
+        setProBusy(false);
+        toast.error(failed.error?.description || "Payment failed — no charge was made");
+      });
+      checkout.open();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not start Pro checkout");
-    } finally {
       setProBusy(false);
     }
   };
