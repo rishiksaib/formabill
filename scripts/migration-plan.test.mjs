@@ -75,6 +75,7 @@ test("the globbed directory holds the full ordered schema", () => {
     "0010_user_gifting.sql",
     "0011_gift_day_grants.sql",
     "0012_lifetime_gift_grant.sql",
+    "0013_gift_codes_columns.sql",
   ]);
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
 });

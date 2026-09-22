@@ -39,7 +39,7 @@ var DEFAULT_SETTINGS = {
 	}
 };
 //#endregion
-//#region node_modules/.nitro/vite/services/ssr/assets/router-sJqJBi9Q.js
+//#region node_modules/.nitro/vite/services/ssr/assets/router-Bmc9EuDx.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 /**
@@ -490,23 +490,23 @@ var Route$31 = createRootRoute({
 });
 var $$splitComponentImporter$11 = () => import("./routes-DNV8i2Vl.mjs");
 var Route$30 = createFileRoute("/")({ component: lazyRouteComponent($$splitComponentImporter$11, "component") });
-var $$splitComponentImporter$10 = () => import("./app-DOG1YFI1.mjs");
+var $$splitComponentImporter$10 = () => import("./app-pCy6yFnJ.mjs");
 var Route$29 = createFileRoute("/app")({
 	ssr: false,
 	component: lazyRouteComponent($$splitComponentImporter$10, "component")
 });
-var $$splitComponentImporter$9 = () => import("./forgot-password-DNjO__EO.mjs");
+var $$splitComponentImporter$9 = () => import("./forgot-password-CPpuaopM.mjs");
 var Route$28 = createFileRoute("/forgot-password")({ component: lazyRouteComponent($$splitComponentImporter$9, "component") });
-var $$splitComponentImporter$8 = () => import("./login-D9TVabN6.mjs");
+var $$splitComponentImporter$8 = () => import("./login-BDaDpzWb.mjs");
 var Route$27 = createFileRoute("/login")({ component: lazyRouteComponent($$splitComponentImporter$8, "component") });
-var $$splitComponentImporter$7 = () => import("./privacy-DDP3W5MZ.mjs");
+var $$splitComponentImporter$7 = () => import("./privacy-CjEKvM6S.mjs");
 var Route$26 = createFileRoute("/privacy")({ component: lazyRouteComponent($$splitComponentImporter$7, "component") });
-var $$splitComponentImporter$6 = () => import("./reset-password-CPgVB3j7.mjs");
+var $$splitComponentImporter$6 = () => import("./reset-password-0UgbO6xv.mjs");
 var Route$25 = createFileRoute("/reset-password")({
 	validateSearch: (search) => ({ token: typeof search.token === "string" ? search.token : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$6, "component")
 });
-var $$splitComponentImporter$5 = () => import("./terms-CF0fL_SF.mjs");
+var $$splitComponentImporter$5 = () => import("./terms-uQ9Lk76y.mjs");
 var Route$24 = createFileRoute("/terms")({ component: lazyRouteComponent($$splitComponentImporter$5, "component") });
 var SUPPORT_EMAIL = "support@formabill.app";
 function env$2(key) {
@@ -9380,6 +9380,7 @@ var _0009_referrals_default = "create table if not exists \"referral_codes\" (\n
 var _0010_user_gifting_default = "alter table \"user\" add column if not exists \"proSource\" text;\nalter table \"user\" add column if not exists \"canGift\" boolean not null default false;\nalter table \"user\" add column if not exists \"giftsRemaining\" integer not null default 0;\n\n-- Backfill: the only server-side path that ever set isPro=true was the paid\n-- Razorpay webhook, so existing permanent-Pro rows are paid subscribers.\nupdate \"user\"\nset \"proSource\" = 'subscription', \"canGift\" = true, \"giftsRemaining\" = 3\nwhere \"isPro\" and \"proSource\" is null and not coalesce(\"isLifetimePro\", false);\n";
 var _0011_gift_day_grants_default = "alter table \"gift_codes\" add column if not exists \"giftDurationDays\" integer;\nalter table \"gift_codes\" add column if not exists \"planType\" text;\n\n-- Backfill day grants from the old month grants (1mo = 30 days) so existing\n-- unused codes keep their promised value under the new model.\nupdate \"gift_codes\"\nset \"giftDurationDays\" = \"durationMonths\" * 30\nwhere \"giftDurationDays\" is null;\n";
 var _0012_lifetime_gift_grant_default = "alter table \"user\" add column if not exists \"lifetimeGiftGranted\" boolean not null default false;\n";
+var _0013_gift_codes_columns_default = "-- Repair migration: guarantees the gift-code columns the API selects,\n-- no matter which earlier migration state a database is in. Fully idempotent:\n-- safe to apply on fresh databases, fully migrated ones, and anything stuck\n-- in between (e.g. a deploy that shipped code newer than its last migrate run).\n--\n-- Ordering matters: the column is added WITHOUT a default first so the\n-- backfill below can tell legacy rows (NULL) apart from real values. A\n-- NOT NULL DEFAULT added up front would stamp every legacy row with the\n-- default and silently devalue old multi-month codes.\nalter table \"gift_codes\" add column if not exists \"giftDurationDays\" integer;\nalter table \"gift_codes\" add column if not exists \"planType\" text;\n\n-- Backfill day grants for rows minted before day grants existed.\nupdate \"gift_codes\"\nset \"giftDurationDays\" = \"durationMonths\" * 30\nwhere \"giftDurationDays\" is null;\n\n-- Normalize the column for all histories (no-op where already correct).\nalter table \"gift_codes\" alter column \"giftDurationDays\" set default 7;\nalter table \"gift_codes\" alter column \"giftDurationDays\" set not null;\n";
 /**
 * Migration bookkeeping shared by the two appliers — `scripts/migrate.mjs`
 * (deploy, `readdir`) and `src/lib/db.ts` (PGLite preview, `import.meta.glob`).
@@ -9509,7 +9510,8 @@ async function createPgliteSql() {
 			"/migrations/0009_referrals.sql": _0009_referrals_default,
 			"/migrations/0010_user_gifting.sql": _0010_user_gifting_default,
 			"/migrations/0011_gift_day_grants.sql": _0011_gift_day_grants_default,
-			"/migrations/0012_lifetime_gift_grant.sql": _0012_lifetime_gift_grant_default
+			"/migrations/0012_lifetime_gift_grant.sql": _0012_lifetime_gift_grant_default,
+			"/migrations/0013_gift_codes_columns.sql": _0013_gift_codes_columns_default
 		});
 		const done = (await pg.query("select name from _migrations")).rows.map((r) => r.name);
 		for (const { name, path } of pendingMigrations(Object.keys(migrations), done)) await pg.transaction(async (tx) => {
@@ -10012,7 +10014,7 @@ var auth = betterAuth({
 		enabled: true,
 		resetPasswordTokenExpiresIn: 3600,
 		sendResetPassword: async ({ user, url }) => {
-			const { sendPasswordResetEmail } = await import("./mailer.server-BzT7C84Z.mjs");
+			const { sendPasswordResetEmail } = await import("./mailer.server-yPPKFHzB.mjs");
 			await sendPasswordResetEmail(user.email, url);
 		}
 	},
@@ -11832,16 +11834,16 @@ var Route$19 = createFileRoute("/api/mcp")({ server: { handlers: {
 		});
 	}
 } } });
-var $$splitComponentImporter$4 = () => import("./app-B-j1y6oM.mjs");
+var $$splitComponentImporter$4 = () => import("./app-ZO2DYbZO.mjs");
 var Route$18 = createFileRoute("/app/")({
 	validateSearch: (search) => ({ id: typeof search.id === "string" ? search.id : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$4, "component")
 });
-var $$splitComponentImporter$3 = () => import("./clients-CSoIil3t.mjs");
+var $$splitComponentImporter$3 = () => import("./clients-l49DMQfn.mjs");
 var Route$17 = createFileRoute("/app/clients")({ component: lazyRouteComponent($$splitComponentImporter$3, "component") });
 var $$splitComponentImporter$2 = () => import("./invoices-0lvuLK3n.mjs");
 var Route$16 = createFileRoute("/app/invoices")({ component: lazyRouteComponent($$splitComponentImporter$2, "component") });
-var $$splitComponentImporter$1 = () => import("./settings-BSY3ArVF.mjs");
+var $$splitComponentImporter$1 = () => import("./settings-huV0Pu5s.mjs");
 var Route$15 = createFileRoute("/app/settings")({
 	validateSearch: (search) => ({ pro: typeof search.pro === "string" ? search.pro : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$1, "component")
@@ -11859,7 +11861,7 @@ var createSsrRpc = (functionId) => {
 	});
 };
 var getPublicInvoice = createServerFn({ method: "GET" }).validator((data) => data).handler(createSsrRpc("7cf99f1f443df70951f16026984e7f7a664d02eb63efa6624ccde1f1d6e46144"));
-var $$splitComponentImporter = () => import("./inv._id-8K9lJVxw.mjs");
+var $$splitComponentImporter = () => import("./inv._id-CbEUaxCF.mjs");
 var Route$14 = createFileRoute("/inv/$id")({
 	loader: async ({ params }) => {
 		return { invoice: await getPublicInvoice({ data: { id: params.id } }) };

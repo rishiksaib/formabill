@@ -4,12 +4,12 @@ import { v as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
 import { O as CircleCheck, S as EyeOff, i as TriangleAlert, x as Eye } from "../_libs/lucide-react.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
-import { p as Route$25 } from "./router-sJqJBi9Q.mjs";
+import { p as Route$25 } from "./router-Bmc9EuDx.mjs";
 import { t as Button } from "./button-CYO0UllO.mjs";
 import { t as Input } from "./input-03uEhuzd.mjs";
 import { t as Label } from "./label-BHyMjyQZ.mjs";
-import { t as authClient } from "./client-CmOGFMjZ.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/reset-password-CPgVB3j7.js
+import { t as authClient } from "./client-Cf7gmKsE.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/reset-password-0UgbO6xv.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function ResetPasswordPage() {

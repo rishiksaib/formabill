@@ -203,6 +203,18 @@ The Settings badge reads “Pro active · Lifetime” for these users, the upgra
 
 **If Pro checks 500 in production:** the database predates the Pro columns — run `npm run db:migrate` with the production `DATABASE_URL` (see the checklist above). Plan reads degrade gracefully meanwhile (basic Pro + allowlist lifetime keep working), with a server-log warning.
 
+**If gift calls fail with `column "giftDurationDays" does not exist`:** the database predates that column — same fix. The normal path is automatic: `migrations/` applies on every deploy via `npm run build` (needs `DATABASE_URL` at build time). If you need it right now, run the migrator manually or paste this into the Neon SQL editor (idempotent — safe to run twice, preserves existing rows):
+
+```sql
+alter table "gift_codes" add column if not exists "giftDurationDays" integer;
+alter table "gift_codes" add column if not exists "planType" text;
+update "gift_codes"
+set "giftDurationDays" = "durationMonths" * 30
+where "giftDurationDays" is null;
+alter table "gift_codes" alter column "giftDurationDays" set default 7;
+alter table "gift_codes" alter column "giftDurationDays" set not null;
+```
+
 ## AI / MCP (Pro)
 
 Paid Pro subscribers can connect any MCP-compatible assistant to act on their account. Settings → **AI / MCP** generates personal access tokens (`fb_mcp_…`, SHA-256 hashed at rest, shown once) and shows copy-paste setup for each client against the canonical Streamable-HTTP endpoint `https://<host>/api/mcp` with an `Authorization: Bearer <token>` header.

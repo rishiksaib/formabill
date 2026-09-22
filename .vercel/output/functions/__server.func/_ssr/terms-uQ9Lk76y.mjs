@@ -1,8 +1,8 @@
 import { v as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
 import { P as ArrowLeft } from "../_libs/lucide-react.mjs";
-import { f as SUPPORT_EMAIL } from "./router-sJqJBi9Q.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/terms-CF0fL_SF.js
+import { f as SUPPORT_EMAIL } from "./router-Bmc9EuDx.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/terms-uQ9Lk76y.js
 var import_jsx_runtime = require_jsx_runtime();
 function TermsPage() {
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("main", {

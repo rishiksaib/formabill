@@ -1,5 +1,5 @@
-import { t as authClient } from "./client-CmOGFMjZ.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/use-current-user-BrU6wFwc.js
+import { t as authClient } from "./client-Cf7gmKsE.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/use-current-user-DTorNRYs.js
 /**
 * Current user + loading state. Same behavior in live preview and when deployed:
 *   - Auth enabled -> the real signed-in user; `user` is `null` while
