@@ -4,7 +4,7 @@ import {
   verifyPlatformWebhookSignature,
 } from "@/lib/platform-billing.server";
 import { maybeRewardReferrer } from "@/lib/referrals.server";
-import { setUserPro, setUserProPlan } from "@/lib/user-plan.server";
+import { setUserSubscriptionPro } from "@/lib/user-plan.server";
 
 type PlatformWebhook = {
   event?: string;
@@ -68,8 +68,8 @@ export const Route = createFileRoute("/api/webhooks/razorpay-platform")({
         if (!userId || !validPlan(plan)) {
           return Response.json({ error: "Missing Pro checkout metadata" }, { status: 400 });
         }
-        await setUserPro(userId, true);
-        await setUserProPlan(userId, plan);
+        // Paid Pro: source recorded, gifting unlocked, quota refreshed.
+        await setUserSubscriptionPro(userId, plan);
         // A paid conversion may complete a pending referral reward (+1 month).
         await maybeRewardReferrer(userId);
         return Response.json({ ok: true, userId, plan });

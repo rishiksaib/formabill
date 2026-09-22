@@ -232,7 +232,8 @@ var pdf = (initialValue) => {
 		updateContainer
 	};
 };
+var Font = fontStore;
 var StyleSheet = { create: (s) => s };
 ({ ...lib_exports });
 //#endregion
-export { pdf as n, StyleSheet as t };
+export { StyleSheet as n, pdf as r, Font as t };

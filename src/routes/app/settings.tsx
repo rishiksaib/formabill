@@ -25,6 +25,7 @@ function SettingsPage() {
   const [proBusy, setProBusy] = useState(false);
   const [serverPro, setServerPro] = useState<boolean | null>(null);
   const [serverLifetime, setServerLifetime] = useState(false);
+  const [serverProSource, setServerProSource] = useState<string | null>(null);
   const [platformConfigured, setPlatformConfigured] = useState(false);
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [plan, setPlan] = useState<"pro_monthly" | "pro_yearly">("pro_monthly");
@@ -35,9 +36,12 @@ function SettingsPage() {
   const [mcpSecret, setMcpSecret] = useState<string | null>(null);
   const [mcpBusy, setMcpBusy] = useState(false);
   const [mcpNeedsSignIn, setMcpNeedsSignIn] = useState(false);
+  const [mcpCanAccess, setMcpCanAccess] = useState(false);
   const [giftCodes, setGiftCodes] = useState<GiftCodeInfo[]>([]);
-  const [giftMax, setGiftMax] = useState(0);
-  const [giftDuration, setGiftDuration] = useState(1);
+  const [giftCanGift, setGiftCanGift] = useState(false);
+  const [giftRemaining, setGiftRemaining] = useState(0);
+  const [giftProSource, setGiftProSource] = useState<string | null>(null);
+  const [giftGrantLabel, setGiftGrantLabel] = useState<string | null>(null);
   const [giftFresh, setGiftFresh] = useState<string | null>(null);
   const [giftBusy, setGiftBusy] = useState(false);
   const [redeemCode, setRedeemCode] = useState("");
@@ -62,9 +66,10 @@ function SettingsPage() {
     try {
       const response = await fetch("/api/pro/status");
       if (!response.ok) return;
-      const status = (await response.json()) as { isPro?: boolean; lifetime?: boolean; configured?: boolean; authenticated?: boolean };
+      const status = (await response.json()) as { isPro?: boolean; lifetime?: boolean; proSource?: string | null; configured?: boolean; authenticated?: boolean };
       setServerPro(Boolean(status.isPro));
       setServerLifetime(Boolean(status.lifetime));
+      setServerProSource(status.proSource ?? null);
       setPlatformConfigured(Boolean(status.configured));
       setAuthenticated(Boolean(status.authenticated));
     } catch {
@@ -85,8 +90,9 @@ function SettingsPage() {
         return;
       }
       if (!response.ok) throw new Error("Could not load tokens");
-      const json = (await response.json()) as { tokens?: McpTokenInfo[] };
+      const json = (await response.json()) as { tokens?: McpTokenInfo[]; canAccess?: boolean };
       setMcpTokens(json.tokens ?? []);
+      setMcpCanAccess(Boolean(json.canAccess));
       setMcpNeedsSignIn(false);
     } catch {
       toast.error("Could not load MCP tokens");
@@ -102,12 +108,18 @@ function SettingsPage() {
     try {
       const response = await fetch("/api/gift-codes");
       if (!response.ok) return;
-      const json = (await response.json()) as { codes?: GiftCodeInfo[]; maxMonths?: number };
+      const json = (await response.json()) as {
+        codes?: GiftCodeInfo[];
+        canGift?: boolean;
+        giftsRemaining?: number;
+        proSource?: string | null;
+        grantLabel?: string | null;
+      };
       setGiftCodes(json.codes ?? []);
-      setGiftMax(json.maxMonths ?? 0);
-      setGiftDuration((current) =>
-        json.maxMonths && current > json.maxMonths ? json.maxMonths : current,
-      );
+      setGiftCanGift(Boolean(json.canGift));
+      setGiftRemaining(Number(json.giftsRemaining ?? 0));
+      setGiftProSource(json.proSource ?? null);
+      setGiftGrantLabel(json.grantLabel ?? null);
     } catch {
       /* gift list is best-effort */
     }
@@ -136,7 +148,7 @@ function SettingsPage() {
       const response = await fetch("/api/gift-codes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationMonths: giftDuration }),
+        body: JSON.stringify({}),
       });
       const json = (await response.json()) as { code?: string; error?: string };
       if (!response.ok) throw new Error(json.error || "Could not create gift code");
@@ -164,14 +176,15 @@ function SettingsPage() {
       });
       const json = (await response.json()) as {
         ok?: boolean;
-        durationMonths?: number;
+        giftDurationDays?: number;
         error?: string;
       };
       if (!response.ok || !json.ok) throw new Error(json.error || "Could not redeem code");
       setRedeemCode("");
       await loadProStatus();
       await loadGiftCodes();
-      toast.success(`Pro unlocked for ${json.durationMonths} month${json.durationMonths === 1 ? "" : "s"} — enjoy!`);
+      const days = Number(json.giftDurationDays ?? 30);
+      toast.success(`Pro unlocked for ${days === 30 ? "1 month" : `${days} days`} — enjoy!`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not redeem code");
     } finally {
@@ -372,6 +385,30 @@ function SettingsPage() {
       toast.error(error instanceof Error ? error.message : "Could not create token");
     } finally {
       setMcpBusy(false);
+    }
+  };
+
+  const onTestMcpConnection = async (secret: string) => {
+    try {
+      const response = await fetch("/api/mcp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          Authorization: `Bearer ${secret}`,
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: "ping-1", method: "tools/list", params: {} }),
+      });
+      if (!response.ok) throw new Error(`Server answered ${response.status}`);
+      const json = (await response.json()) as {
+        result?: { tools?: unknown[] };
+        error?: { message?: string };
+      };
+      if (json.error) throw new Error(json.error.message || "Connection failed");
+      const count = json.result?.tools?.length ?? 0;
+      toast.success(`Connected — ${count} tools available`);
+    } catch {
+      toast.error("Connection failed — check the URL and token, then retry");
     }
   };
 
@@ -681,6 +718,7 @@ function SettingsPage() {
 
       <McpSection
         isPro={isPro}
+        canAccess={mcpCanAccess}
         needsSignIn={mcpNeedsSignIn}
         tokens={mcpTokens}
         name={mcpName}
@@ -691,15 +729,17 @@ function SettingsPage() {
         onGenerate={() => void onGenerateToken()}
         onRevoke={(id) => void onRevokeToken(id)}
         onCopy={(value, label) => void copyText(value, label)}
+        onTest={(value) => void onTestMcpConnection(value)}
       />
 
       <GiftSection
         isPro={isPro}
         signedIn={authenticated !== false}
         codes={giftCodes}
-        maxMonths={giftMax}
-        duration={giftDuration}
-        onDurationChange={setGiftDuration}
+        canGift={giftCanGift}
+        giftsRemaining={giftRemaining}
+        proSource={giftProSource}
+        grantLabel={giftGrantLabel}
         fresh={giftFresh}
         onDismissFresh={() => setGiftFresh(null)}
         busy={giftBusy}
@@ -721,7 +761,13 @@ function SettingsPage() {
       >
         <div className="flex items-center gap-3">
           <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium">
-            {isPro ? (serverLifetime ? "Pro active · Lifetime" : "Pro active") : "Free plan · 5 invoices/mo"}
+            {isPro
+              ? serverLifetime
+                ? "Pro active · Lifetime"
+                : serverProSource === "gift"
+                  ? "Pro (gift)"
+                  : "Pro active"
+              : "Free plan · 5 invoices/mo"}
           </span>
           {isPro && serverLifetime ? (
             <p className="basis-full text-xs text-muted-foreground">
@@ -855,11 +901,19 @@ type GiftCodeInfo = {
   id: string;
   code: string;
   durationMonths: number;
+  giftDurationDays: number;
+  planType: string | null;
   status: "unused" | "redeemed" | "expired";
   createdAt: string;
   expiresAt: string;
   redeemedAt: string | null;
 };
+
+function giftLengthLabel(days: number): string {
+  if (days === 30) return "1 month Pro";
+  if (days % 30 === 0) return `${days / 30} months Pro`;
+  return `${days} days Pro`;
+}
 
 type ReferralInfo = {
   code: string;
@@ -870,6 +924,7 @@ type ReferralInfo = {
 
 function McpSection({
   isPro,
+  canAccess,
   needsSignIn,
   tokens,
   name,
@@ -880,8 +935,10 @@ function McpSection({
   onGenerate,
   onRevoke,
   onCopy,
+  onTest,
 }: {
   isPro: boolean;
+  canAccess: boolean;
   needsSignIn: boolean;
   tokens: McpTokenInfo[];
   name: string;
@@ -892,16 +949,21 @@ function McpSection({
   onGenerate: () => void;
   onRevoke: (id: string) => void;
   onCopy: (value: string, label: string) => void;
+  onTest: (secret: string) => void;
 }) {
   const serverUrl = typeof window !== "undefined" ? `${window.location.origin}/api/mcp` : "/api/mcp";
-  const [guide, setGuide] = useState<"claude" | "cursor" | "other">("claude");
+  const [guide, setGuide] = useState<"opencode" | "claude" | "cursor">("opencode");
   const connected = tokens.length > 0;
-  const configSnippet = JSON.stringify(
+  const opencodeSnippet = JSON.stringify(
     {
-      mcpServers: {
+      $schema: "https://opencode.ai/config.json",
+      mcp: {
         formabill: {
+          type: "remote",
           url: serverUrl,
-          headers: { Authorization: "Bearer <paste-your-token-here>" },
+          enabled: true,
+          oauth: false,
+          headers: { Authorization: "Bearer PASTE_YOUR_KEY_HERE" },
         },
       },
     },
@@ -935,7 +997,7 @@ function McpSection({
       <SectionCard
         kicker="AI / MCP"
         title="Connect AI assistants"
-        blurb="Let Claude, Cursor, or another MCP-compatible AI act on your account."
+        blurb="Let OpenCode, Claude, Cursor, or another MCP-compatible AI act on your account."
       >
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border p-4">
           <p className="text-sm text-muted-foreground">Sign in to manage MCP tokens.</p>
@@ -947,11 +1009,29 @@ function McpSection({
     );
   }
 
+  if (isPro && !canAccess) {
+    return (
+      <SectionCard
+        kicker="AI / MCP"
+        title="Connect AI assistants"
+        blurb="Let OpenCode, Claude, Cursor, or another MCP-compatible AI act on your account."
+      >
+        <div className="rounded-lg border border-dashed border-border bg-secondary/40 p-4">
+          <p className="text-sm font-medium">Paid subscription required</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            AI connection needs a paid Pro subscription — gift and trial grants don&apos;t include
+            it. Your Pro features work fully meanwhile.
+          </p>
+        </div>
+      </SectionCard>
+    );
+  }
+
   return (
     <SectionCard
       kicker="AI / MCP"
       title="Connect AI assistants"
-      blurb="Tokens act as you: every invoice, client, or setting change is attributed to your account. Keep them secret."
+      blurb="A personal key gives an AI full access to your invoices — it acts as you. Each key is shown once; revoke any key the moment it leaks."
     >
       <div className="flex items-center gap-2">
         <span
@@ -984,6 +1064,9 @@ function McpSection({
           <div className="mt-3 flex flex-wrap gap-2">
             <Button type="button" size="sm" onClick={() => onCopy(secret, "Token")}>
               Copy token
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => onTest(secret)}>
+              Test connection
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={onDismissSecret}>
               I&apos;ve saved it
@@ -1032,9 +1115,9 @@ function McpSection({
         <div className="mt-3 flex gap-1 rounded-lg bg-secondary/60 p-1" role="tablist" aria-label="AI client guides">
           {(
             [
-              { value: "claude", label: "Claude Desktop" },
+              { value: "opencode", label: "OpenCode" },
+              { value: "claude", label: "Claude" },
               { value: "cursor", label: "Cursor" },
-              { value: "other", label: "Grok & others" },
             ] as const
           ).map((tab) => (
             <button
@@ -1053,11 +1136,43 @@ function McpSection({
             </button>
           ))}
         </div>
+        {guide === "opencode" ? (
+          <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+            <p>
+              OpenCode connects over remote HTTP — it uses an <span className="font-mono text-xs">mcp</span> block
+              with <span className="font-mono text-xs">type: &quot;remote&quot;</span>, not{" "}
+              <span className="font-mono text-xs">mcpServers</span>. Add this to your opencode config:
+            </p>
+            <div className="relative">
+              <pre className="overflow-x-auto rounded-md bg-secondary/60 p-3 font-mono text-xs break-all whitespace-pre-wrap">
+                {opencodeSnippet}
+              </pre>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="absolute top-2 right-2"
+                onClick={() => onCopy(opencodeSnippet, "OpenCode config")}
+              >
+                Copy
+              </Button>
+            </div>
+            <p>Replace PASTE_YOUR_KEY_HERE, restart OpenCode, then ask it to list your invoices.</p>
+          </div>
+        ) : null}
         {guide === "claude" ? (
           <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
             <li>Generate a token above and copy it.</li>
-            <li>Open Claude Desktop → Settings → Connectors → Add custom connector.</li>
-            <li>Paste the server URL, add header `Authorization` with value `Bearer YOUR_TOKEN`.</li>
+            <li>
+              Claude Desktop → Settings → Connectors → Add custom connector: paste the server URL
+              above, add header <span className="font-mono text-xs">Authorization</span> with value{" "}
+              <span className="font-mono text-xs">Bearer YOUR_TOKEN</span>. Remote HTTP is all our
+              endpoint speaks — no stdio proxy needed.
+            </li>
+            <li>
+              Claude Code terminal:{" "}
+              <span className="font-mono text-xs">claude mcp add --transport http formabill URL --header &quot;Authorization: Bearer KEY&quot;</span>
+            </li>
             <li>Ask it to “list my invoices” — revoke the token here anytime to cut access.</li>
           </ol>
         ) : null}
@@ -1069,45 +1184,19 @@ function McpSection({
             <li>Ask it to “draft an invoice for Acme” — revoke the token here anytime.</li>
           </ol>
         ) : null}
-        {guide === "other" ? (
-          <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-            <li>Generate a token above and copy it.</li>
-            <li>
-              In any MCP-compatible client (Grok, Windsurf, …), add a Streamable-HTTP server with
-              the URL above and an `Authorization: Bearer YOUR_TOKEN` header, or use this config:
-            </li>
-          </ol>
-        ) : null}
-        {guide === "other" ? (
-          <div className="relative mt-2">
-            <pre className="overflow-x-auto rounded-md bg-secondary/60 p-3 font-mono text-xs break-all whitespace-pre-wrap">
-              {configSnippet}
-            </pre>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="absolute top-2 right-2"
-              onClick={() => onCopy(configSnippet, "Config snippet")}
-            >
-              Copy
-            </Button>
-          </div>
-        ) : null}
       </div>
     </SectionCard>
   );
 }
 
-const GIFT_DURATIONS = [1, 3, 6, 12] as const;
-
 function GiftSection({
   isPro,
   signedIn,
   codes,
-  maxMonths,
-  duration,
-  onDurationChange,
+  canGift,
+  giftsRemaining,
+  proSource,
+  grantLabel,
   fresh,
   onDismissFresh,
   busy,
@@ -1121,9 +1210,10 @@ function GiftSection({
   isPro: boolean;
   signedIn: boolean;
   codes: GiftCodeInfo[];
-  maxMonths: number;
-  duration: number;
-  onDurationChange: (value: number) => void;
+  canGift: boolean;
+  giftsRemaining: number;
+  proSource: string | null;
+  grantLabel: string | null;
   fresh: string | null;
   onDismissFresh: () => void;
   busy: boolean;
@@ -1138,7 +1228,7 @@ function GiftSection({
     <SectionCard
       kicker="Gift codes"
       title="Give Pro to a friend"
-      blurb="Gift codes unlock Pro for exactly their duration. Yours can gift up to your own plan length."
+      blurb="Paid subscribers get one gift code per billing period. Redeeming unlocks Pro for a fixed stretch — never more gifting rights."
     >
       {signedIn && (
         <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -1165,7 +1255,8 @@ function GiftSection({
         <div className="mt-4 rounded-lg border border-dashed border-border bg-secondary/40 p-4">
           <p className="text-sm font-medium">Creating codes is a Pro feature</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Upgrade and you can gift 1, 3, 6, or 12 months of Pro — up to your own plan length.
+            Paid subscribers get one gift code per billing period — 7 days of Pro on monthly, a
+            full month on yearly.
           </p>
           <Button type="button" className="mt-3" asChild>
             <a href="#pro">See Pro plans</a>
@@ -1173,7 +1264,22 @@ function GiftSection({
         </div>
       ) : (
         <>
-          {fresh ? (
+          {isPro && !canGift ? (
+        <div className="rounded-lg border border-dashed border-border bg-secondary/40 p-4">
+          <p className="text-sm font-medium">Pro (gift) — sharing codes not included</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Gifted Pro unlocks everything for you, but only paid subscribers can create new gift
+            codes.
+          </p>
+        </div>
+      ) : null}
+      {isPro && canGift ? (
+        <p className="text-sm text-muted-foreground">
+          {giftsRemaining} gift code{giftsRemaining === 1 ? "" : "s"} left
+          {proSource === "subscription" ? " — refills with each Pro payment" : ""}.
+        </p>
+      ) : null}
+      {fresh ? (
             <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
               <p className="text-sm font-medium text-emerald-900">
                 Share this code — it works once and expires in 90 days
@@ -1191,34 +1297,19 @@ function GiftSection({
               </div>
             </div>
           ) : null}
-          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Gift duration">
-              {GIFT_DURATIONS.map((months) => {
-                const enabled = months <= maxMonths;
-                const selected = duration === months;
-                return (
-                  <button
-                    key={months}
-                    type="button"
-                    disabled={!enabled}
-                    aria-pressed={selected}
-                    onClick={() => onDurationChange(months)}
-                    title={enabled ? `${months}-month gift` : `Needs a ${months}-month (or longer) plan`}
-                    className={`cursor-pointer rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                      selected
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    {months} mo
-                  </button>
-                );
-              })}
+          {canGift ? (
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{grantLabel ?? "1 gift code"}</p>
+                <p className="text-xs text-muted-foreground">
+                  Single-use · expires in 90 days · {giftsRemaining} left
+                </p>
+              </div>
+              <Button type="button" disabled={busy} onClick={onGenerate}>
+                {busy ? "Creating…" : "Generate code"}
+              </Button>
             </div>
-            <Button type="button" disabled={busy} onClick={onGenerate}>
-              {busy ? "Creating…" : "Generate code"}
-            </Button>
-          </div>
+          ) : null}
           {codes.length > 0 ? (
             <ul className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border">
               {codes.map((gift) => (
@@ -1228,7 +1319,7 @@ function GiftSection({
                       {gift.code}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {gift.durationMonths} month{gift.durationMonths === 1 ? "" : "s"} · expires{" "}
+                      {giftLengthLabel(gift.giftDurationDays ?? gift.durationMonths * 30)} · expires{" "}
                       {new Date(gift.expiresAt).toLocaleDateString()}
                       {gift.redeemedAt
                         ? ` · redeemed ${new Date(gift.redeemedAt).toLocaleDateString()}`
@@ -1259,11 +1350,11 @@ function GiftSection({
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : canGift ? (
             <p className="mt-4 text-sm text-muted-foreground">
               No codes yet. Pick a duration and generate your first gift.
             </p>
-          )}
+          ) : null}
         </>
       )}
     </SectionCard>

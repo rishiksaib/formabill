@@ -11,10 +11,20 @@ export const Route = createFileRoute("/api/pro/status")({
         const sessionUserId = await getRequestUserId();
         const plan = userId
           ? await getUserPlan(userId)
-          : { isPro: false, isLifetimePro: false, proPlan: null, proExpiresAt: null };
+          : {
+              isPro: false,
+              isLifetimePro: false,
+              proPlan: null,
+              proExpiresAt: null,
+              proSource: null,
+              canGift: false,
+              giftsRemaining: 0,
+            };
         return Response.json({
           isPro: plan.isPro,
           lifetime: plan.isLifetimePro,
+          proSource: plan.proSource,
+          proExpiresAt: plan.proExpiresAt,
           configured: platformBillingConfigured(),
           authenticated: Boolean(sessionUserId),
         });

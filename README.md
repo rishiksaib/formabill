@@ -199,13 +199,49 @@ The Settings badge reads “Pro active · Lifetime” for these users.
 
 ## AI / MCP (Pro)
 
-Pro users can connect any MCP-compatible assistant (Claude Desktop, Cursor, Grok, Windsurf) to act on their account. Settings → **AI / MCP** generates personal access tokens (`fbm_…`, SHA-256 hashed at rest, shown once) and shows per-client connection steps for the Streamable-HTTP endpoint `https://<host>/api/mcp` with an `Authorization: Bearer <token>` header.
+Paid Pro subscribers can connect any MCP-compatible assistant to act on their account. Settings → **AI / MCP** generates personal access tokens (`fb_mcp_…`, SHA-256 hashed at rest, shown once) and shows copy-paste setup for each client against the canonical Streamable-HTTP endpoint `https://<host>/api/mcp` with an `Authorization: Bearer <token>` header.
 
-Exposed tools: `list_invoices`, `get_invoice`, `create_invoice`, `update_invoice`, `mark_invoice_paid`, `create_payment_link`, `list_clients`, `create_client`, `get_studio_settings`, `update_studio_settings`. Every call is authenticated per token, attributed to that token’s user, requires Pro on every request (downgraded users get 403), and is rate-limited (100/min per token). Free users see an upgrade prompt instead of token controls. No extra env vars — the endpoint, token APIs, and `mcp_tokens` / `studio_settings` / `mcp_clients` tables ship with the app.
+Product rule (same philosophy as gift codes): MCP needs a **paid subscription**. Gift-Pro, expired trials, and free users are rejected (403/402) — downgraded users lose access on their very next call.
+
+Exposed tools: `list_invoices`, `get_invoice`, `create_invoice` (always a draft — never sent, never charged), `update_invoice_status` (explicit draft/sent/paid), `update_invoice`, `mark_invoice_paid` (bookkeeping only), `create_payment_link` (the ONLY money-moving tool — confirm with the user first), `list_clients`, `upsert_client`, `get_invoice_public_link`, `get_studio_settings`, `update_studio_settings`. Mutating tools answer with a human first line plus JSON. Every call is authenticated per token, attributed to that token’s user, and rate-limited (100/min per token). Free users see an upgrade prompt instead of token controls. No extra env vars — the endpoint, token APIs, and `mcp_tokens` / `studio_settings` / `mcp_clients` tables ship with the app.
+
+Security: a key equals full account access to invoices, clients, and settings. Revoke it in Settings the moment it leaks; use one key per assistant.
+
+### Connecting OpenCode (step-by-step)
+
+1. In FormaBill Settings → **AI / MCP**, generate a token and copy it (shown once).
+2. In your OpenCode config add a remote entry — OpenCode uses an `mcp` block with `type: "remote"`, **not** `mcpServers`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "formabill": {
+      "type": "remote",
+      "url": "https://formabill.vercel.app/api/mcp",
+      "enabled": true,
+      "oauth": false,
+      "headers": {
+        "Authorization": "Bearer PASTE_YOUR_KEY_HERE"
+      }
+    }
+  }
+}
+```
+
+3. Restart OpenCode and ask it to list your invoices. Use **Test connection** in Settings first if unsure.
+4. Claude Desktop takes the same URL via Settings → Connectors → custom connector; Claude Code via `claude mcp add --transport http`; Cursor via Settings → MCP → custom server. Our endpoint only speaks remote HTTP — no stdio proxy exists or is needed.
+
+### Example prompts
+
+- “Create an invoice for Acme, $1200, due in 7 days.”
+- “Who owes me money right now?”
+- “Mark invoice FB-0042 as paid — the client sent it by UPI.”
+- “Draft next month’s retainer for Harbor Co and give me the public link.”
 
 ## Gift codes & referrals (Pro)
 
-**Gift codes** let Pro (and lifetime Pro) users give time-boxed Pro to anyone. Settings → **Gift codes**: pick 1, 3, 6, or 12 months — capped at your own plan length (1-month plan → 1-month codes only; yearly or lifetime → any). Codes look like `PRO-XXXX-XXXX`, are single-use, expire 90 days after creation, and grant Pro for exactly their duration, stacked on any remaining grant. The recipient pastes the code in the same Settings section (Redeem works for any signed-in user, including free ones); you can’t redeem your own code. Creation is throttled (20/min, max 20 live unused codes) to prevent farming.
+**Gift codes** let *paid* subscribers — and only them — give time-boxed Pro to anyone. This is what stops infinite Pro loops: creation requires `proSource === 'subscription'` plus remaining quota, and recipients become gift-Pro with zero gifting rights. Settings → **Gift codes** mints exactly one code per billing period: monthly plans grant **7 days** of Pro, yearly plans grant **30 days**. Each paid Pro payment sets `giftsRemaining = 1` (never refilled otherwise); creating consumes the unit. Codes look like `PRO-XXXX-XXXX`, are single-use, expire 90 days after creation, and stack on any remaining grant. The recipient pastes the code in the same Settings section (Redeem works for any signed-in user, including free ones); you can’t redeem your own code. Creation is throttled (20/min, max 20 live unused codes). Lifetime, admin, and env-allowlisted accounts cannot mint codes; `--can-gift` on the grant script only tops up an existing subscriber’s quota for testing.
 
 **Referrals**: every signed-in user has a link (`/?ref=CODE`, auto-captured on landing) with signup/Pro/months-earned stats in Settings → **Referrals**. When an invitee becomes Pro by paying or redeeming a gift, the referrer gets +1 free month, stacked — once per invitee. Self-referral, double attribution, and lifetime/env grants never pay out.
 

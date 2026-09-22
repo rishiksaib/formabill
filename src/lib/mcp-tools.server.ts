@@ -7,7 +7,7 @@ import {
   saveServerClient,
   updateStudioSettings,
 } from "@/lib/mcp-store.server";
-import { createPaymentLink } from "@/lib/razorpay.server";
+import { appBaseUrl, createPaymentLink } from "@/lib/razorpay.server";
 import {
   getInvoice,
   listInvoices,
@@ -26,11 +26,28 @@ type ToolDef = {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** Old names still accepted, never advertised. */
+  aliases?: string[];
   run: (userId: string, args: Record<string, unknown>) => Promise<unknown>;
 };
 
 function text(value: unknown): McpToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+}
+
+/** Public client-facing URL for an invoice (env-aware, no localhost in prod). */
+function publicInvoiceUrl(id: string): string {
+  return `${appBaseUrl()}/inv/${encodeURIComponent(id)}`;
+}
+
+function money(amount: number, currency: string): string {
+  const symbol = currency === "INR" ? "₹" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
+  return `${symbol}${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+}
+
+/** Human first line + machine JSON, so the assistant can quote and parse. */
+function summary(human: string, data: unknown): McpToolResult {
+  return { content: [{ type: "text", text: `${human}\n${JSON.stringify(data, null, 2)}` }] };
 }
 
 function fail(message: string): McpToolResult {
@@ -150,7 +167,7 @@ const TOOLS: ToolDef[] = [
   {
     name: "create_invoice",
     description:
-      "Create a draft invoice for the user's client. From-name, currency, tax, and payment methods default from studio settings.",
+      "Create a DRAFT invoice for the user's client — never sent, never charged. From-name, currency, tax, and payment methods default from studio settings. Use update_invoice_status to send it, and get_invoice_public_link to share it.",
     inputSchema: {
       type: "object",
       required: ["client", "lineItems"],
@@ -168,7 +185,6 @@ const TOOLS: ToolDef[] = [
         taxRate: { type: "number" },
         dueDate: { type: "string", description: "ISO date, defaults to 14 days out" },
         notes: { type: "string" },
-        status: { type: "string", enum: ["draft", "sent"] },
       },
     },
     run: async (userId, raw) => {
@@ -183,8 +199,6 @@ const TOOLS: ToolDef[] = [
       if (!STUDIO_CURRENCIES.includes(currency as (typeof STUDIO_CURRENCIES)[number])) {
         throw new Error(`"currency" must be one of ${STUDIO_CURRENCIES.join(", ")}.`);
       }
-      const status = asString(args.status, "status") || "draft";
-      if (status !== "draft" && status !== "sent") throw new Error('"status" must be draft or sent.');
       const saved = await upsertInvoice(
         {
           ...draft,
@@ -196,12 +210,74 @@ const TOOLS: ToolDef[] = [
           taxRate: asNumber(args.taxRate, "taxRate", settings.defaultTaxRate ?? 0),
           dueDate: asString(args.dueDate, "dueDate") || isoDate(14),
           notes: asString(args.notes, "notes"),
-          status: status as InvoiceStatus,
+          status: "draft",
           userId,
         },
         userId,
       );
-      return invoiceSummary(saved);
+      const created = invoiceSummary(saved);
+      return summary(
+        `Created invoice ${saved.number} for ${clientName || "the client"}, ${money(created.total, created.currency)} (draft). Public link: ${publicInvoiceUrl(saved.id)}`,
+        created,
+      );
+    },
+  },
+  {
+    name: "update_invoice_status",
+    description:
+      "Move an invoice between draft, sent, and paid. Pass the status explicitly — marking paid means the client has already paid by hand; it never charges anyone.",
+    inputSchema: {
+      type: "object",
+      required: ["id", "status"],
+      properties: {
+        id: { type: "string", description: "Invoice id" },
+        status: { type: "string", enum: ["draft", "sent", "paid"] },
+      },
+    },
+    run: async (userId, raw) => {
+      const args = asRecord(raw);
+      const id = asString(args.id, "id", true);
+      const status = asString(args.status, "status", true);
+      if (status !== "draft" && status !== "sent" && status !== "paid") {
+        throw new Error('"status" must be exactly draft, sent, or paid.');
+      }
+      const existing = await getInvoice(id, userId);
+      if (!existing) {
+        throw new Error('Invoice not found. Use list_invoices to find the "id".');
+      }
+      const saved = await upsertInvoice(
+        { ...existing, status: status as InvoiceStatus, userId },
+        userId,
+      );
+      const result = invoiceSummary(saved);
+      return summary(
+        `Invoice ${saved.number} is now ${status}. Total ${money(result.total, result.currency)}.`,
+        result,
+      );
+    },
+  },
+  {
+    name: "get_invoice_public_link",
+    description:
+      "Get the shareable public page URL for an invoice (publishes a working link without changing its status). Send this URL to the client.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "string", description: "Invoice id" } },
+    },
+    run: async (userId, raw) => {
+      const args = asRecord(raw);
+      const id = asString(args.id, "id", true);
+      const existing = (await getInvoice(id, userId)) ?? (await getInvoice(id));
+      if (!existing) {
+        throw new Error('Invoice not found. Use list_invoices to find the "id".');
+      }
+      const saved = await upsertInvoice({ ...existing, userId }, userId);
+      const url = publicInvoiceUrl(saved.id);
+      return summary(
+        `Public link for invoice ${saved.number} (${saved.status}): ${url}`,
+        { id: saved.id, number: saved.number, status: saved.status, url },
+      );
     },
   },
   {
@@ -264,7 +340,8 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: "mark_invoice_paid",
-    description: "Mark an invoice as paid after the client has paid (manual payments).",
+    description:
+      "Record that the client already paid by hand (cash, UPI, bank). Bookkeeping only — it never moves money.",
     inputSchema: {
       type: "object",
       required: ["id"],
@@ -274,15 +351,21 @@ const TOOLS: ToolDef[] = [
       const args = asRecord(raw);
       const id = asString(args.id, "id", true);
       const existing = await getInvoice(id, userId);
-      if (!existing) throw new Error("Invoice not found.");
+      if (!existing) {
+        throw new Error('Invoice not found. Use list_invoices to find the "id".');
+      }
       const paid = await markInvoicePaid(existing.id);
-      return invoiceSummary({ ...existing, ...(paid ?? {}), status: "paid" as InvoiceStatus });
+      const result = invoiceSummary({ ...existing, ...(paid ?? {}), status: "paid" as InvoiceStatus });
+      return summary(
+        `Invoice ${result.number} marked paid. Total ${money(result.total, result.currency)} — no money moved, record only.`,
+        result,
+      );
     },
   },
   {
     name: "create_payment_link",
     description:
-      "Create a Razorpay payment link for an invoice. Uses the studio's stored Razorpay keys unless keyId/keySecret are passed. Without keys, returns guidance instead of a link.",
+      "Create a Razorpay payment link so the CLIENT can pay online. This is the ONLY tool that starts a real money flow — confirm with the user first. Uses the studio's stored Razorpay keys unless keyId/keySecret are passed. Without keys, returns guidance instead of a link (nothing is charged).",
     inputSchema: {
       type: "object",
       required: ["invoiceId"],
@@ -303,12 +386,11 @@ const TOOLS: ToolDef[] = [
         keySecret: asString(args.keySecret, "keySecret") || settings.paymentMethods?.razorpayKeySecret,
       });
       if (link.demo) {
-        return {
-          demo: true,
-          message:
-            link.message ?? "Add UPI in Settings or connect Razorpay to collect online payments.",
-          invoice: invoiceSummary(invoice),
-        };
+        return summary(
+          link.message ??
+            "No payment link created — add UPI in Settings or connect Razorpay first. Nothing was charged.",
+          { demo: true, invoice: invoiceSummary(invoice) },
+        );
       }
       const updated = await upsertInvoice(
         {
@@ -320,7 +402,11 @@ const TOOLS: ToolDef[] = [
         },
         userId,
       );
-      return { demo: false, id: link.id, shortUrl: link.shortUrl, invoice: invoiceSummary(updated) };
+      const result = invoiceSummary(updated);
+      return summary(
+        `Payment link created for invoice ${result.number} (${money(result.total, result.currency)}): ${link.shortUrl} — send it to the client to collect.`,
+        { demo: false, id: link.id, shortUrl: link.shortUrl, invoice: result },
+      );
     },
   },
   {
@@ -350,8 +436,10 @@ const TOOLS: ToolDef[] = [
     },
   },
   {
-    name: "create_client",
-    description: "Save a client for reuse on future invoices.",
+    name: "upsert_client",
+    description:
+      "Save a client for reuse on future invoices. Same email twice updates the existing client instead of duplicating.",
+    aliases: ["create_client"],
     inputSchema: {
       type: "object",
       required: ["name"],
@@ -439,20 +527,31 @@ export function listMcpTools() {
   return TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
 }
 
+/** A tool result already shaped for the wire (human line + JSON). */
+function isShapedResult(value: unknown): value is McpToolResult {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    "content" in value &&
+    Array.isArray((value as { content?: unknown }).content)
+  );
+}
+
 /** Run a tool for a user. Tool-level failures resolve (never reject). */
 export async function callMcpTool(
   userId: string,
   name: string,
   args: unknown,
 ): Promise<McpToolResult> {
-  const tool = TOOLS.find((t) => t.name === name);
+  const tool = TOOLS.find((t) => t.name === name || t.aliases?.includes(String(name)));
   if (!tool) {
     return fail(
       `Unknown tool "${String(name)}". Available tools: ${TOOLS.map((t) => t.name).join(", ")}.`,
     );
   }
   try {
-    return text(await tool.run(userId, asRecord(args ?? {})));
+    const out = await tool.run(userId, asRecord(args ?? {}));
+    return isShapedResult(out) ? out : text(out);
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Tool failed.");
   }

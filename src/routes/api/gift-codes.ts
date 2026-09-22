@@ -1,18 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { UnauthorizedError } from "@/lib/auth/verify.server";
 import {
+  GIFT_GRANTS,
   GiftProRequiredError,
-  GIFT_DURATIONS,
+  GiftQuotaExhaustedError,
   createGiftCode,
   listGiftCodes,
-  maxGiftMonths,
 } from "@/lib/gifts.server";
+import { getUserPlan } from "@/lib/user-plan.server";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rate-limit.server";
 import { requireRequestUserId } from "@/lib/request-auth.server";
 
 /**
- * Gift codes. Listing needs sign-in; creating additionally needs Pro, and the
- * duration must fit the granter's own plan (lifetime → any).
+ * Gift codes. Listing needs sign-in; creating needs a paid subscription with
+ * remaining quota. The grant is fixed by the granter's own plan (monthly → 7
+ * days, yearly → 30 days) — recipients can never mint, so free Pro ends here.
  */
 export const Route = createFileRoute("/api/gift-codes")({
   server: {
@@ -20,18 +22,33 @@ export const Route = createFileRoute("/api/gift-codes")({
       GET: async () => {
         try {
           const userId = await requireRequestUserId();
-          const [codes, maxMonths] = await Promise.all([
+          const [codes, plan] = await Promise.all([
             listGiftCodes(userId),
-            maxGiftMonths(userId).catch(() => 0),
+            getUserPlan(userId).catch(() => null),
           ]);
-          return Response.json({ codes, maxMonths, durations: [...GIFT_DURATIONS] });
+          const grant =
+            plan?.proSource === "subscription"
+              ? GIFT_GRANTS[plan.proPlan === "pro_yearly" ? "pro_yearly" : "pro_monthly"]
+              : null;
+          return Response.json({
+            codes,
+            canGift: plan?.canGift ?? false,
+            giftsRemaining: plan?.giftsRemaining ?? 0,
+            proSource: plan?.proSource ?? null,
+            grantDays: grant?.days ?? null,
+            grantLabel: grant
+              ? plan?.proPlan === "pro_yearly"
+                ? "1 friend · 1 month Pro · 1 code/year"
+                : "1 friend · 7 days Pro · 1 code/month"
+              : null,
+          });
         } catch (error) {
           if (error instanceof UnauthorizedError) {
             return Response.json({ error: "Sign in to manage gift codes." }, { status: 401 });
           }
           if (error instanceof GiftProRequiredError) {
             return Response.json(
-              { codes: [], maxMonths: 0, durations: [...GIFT_DURATIONS], error: error.message },
+              { codes: [], canGift: false, giftsRemaining: 0, proSource: null, error: error.message },
               { status: 402 },
             );
           }
@@ -46,15 +63,17 @@ export const Route = createFileRoute("/api/gift-codes")({
           const limit = checkRateLimit(`gift-codes:POST:${clientIp(request)}`, 20, 60_000);
           if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSec);
           const userId = await requireRequestUserId();
-          const body = (await request.json().catch(() => ({}))) as { durationMonths?: unknown };
-          const durationMonths = Number(body.durationMonths);
-          const created = await createGiftCode(userId, durationMonths);
+          await request.json().catch(() => ({}));
+          const created = await createGiftCode(userId);
           return Response.json(created);
         } catch (error) {
           if (error instanceof UnauthorizedError) {
             return Response.json({ error: "Sign in to manage gift codes." }, { status: 401 });
           }
           if (error instanceof GiftProRequiredError) {
+            return Response.json({ error: error.message }, { status: error.status });
+          }
+          if (error instanceof GiftQuotaExhaustedError) {
             return Response.json({ error: error.message }, { status: error.status });
           }
           return Response.json(

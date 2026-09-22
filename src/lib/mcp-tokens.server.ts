@@ -1,11 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
-import { isProUser } from "@/lib/user-plan.server";
+import { getUserPlan } from "@/lib/user-plan.server";
 import { uid } from "@/lib/utils";
 
-export const MCP_TOKEN_PREFIX = "fbm_";
+export const MCP_TOKEN_PREFIX = "fb_mcp_";
 export const MCP_UPGRADE_MESSAGE =
   "AI connection is a Pro feature. Upgrade to Pro to generate MCP tokens.";
+export const MCP_PAID_ONLY_MESSAGE =
+  "MCP access needs a paid Pro subscription — gift and trial grants don't include AI connection.";
 
 export type McpTokenInfo = {
   id: string;
@@ -42,20 +44,40 @@ export class McpProRequiredError extends Error {
   }
 }
 
-async function requirePro(userId: string): Promise<void> {
-  if (!(await isProUser(userId))) throw new McpProRequiredError();
+/**
+ * Thrown when a Pro user without a paid subscription (gift grants, expired
+ * trials) attempts MCP. Product rule, mirroring gift-code philosophy: only
+ * `proSource === "subscription"` (or an env-allowlisted founder) unlocks AI
+ * connection. Carries `status` 403.
+ */
+export class McpPaidOnlyError extends Error {
+  readonly status = 403;
+  constructor() {
+    super(MCP_PAID_ONLY_MESSAGE);
+    this.name = "McpPaidOnlyError";
+  }
 }
 
 /**
- * Create a personal access token for MCP. Pro-only. Returns the full secret
- * exactly once — callers must show it to the user immediately; only the
- * SHA-256 hash is stored.
+ * Paid-subscription gate for MCP. Gift-Pro and other non-subscription grants
+ * are Pro everywhere else, but cannot mint or use API keys.
+ */
+export async function requireMcpAccess(userId: string): Promise<void> {
+  const plan = await getUserPlan(userId);
+  if (!plan.isPro) throw new McpProRequiredError();
+  if (!plan.canGift && plan.proSource !== "subscription") throw new McpPaidOnlyError();
+}
+
+/**
+ * Create a personal access token for MCP. Paid Pro only. Returns the full
+ * secret exactly once — callers must show it to the user immediately; only
+ * the SHA-256 hash is stored.
  */
 export async function createMcpToken(
   userId: string,
   name: string,
 ): Promise<McpTokenInfo & { token: string }> {
-  await requirePro(userId);
+  await requireMcpAccess(userId);
   const cleanName = name.trim().slice(0, 80) || "Untitled token";
   const token = newTokenSecret();
   const sql = await getSql();
@@ -106,7 +128,7 @@ export async function revokeMcpToken(userId: string, id: string): Promise<boolea
 
 export type McpAuth =
   | { ok: true; tokenId: string; userId: string }
-  | { ok: false; reason: "invalid" | "revoked" | "not_pro" };
+  | { ok: false; reason: "invalid" | "revoked" | "not_pro" | "paid_only" };
 
 /**
  * Authenticate an MCP bearer token. Scoped to exactly one user; revoked
@@ -122,7 +144,11 @@ export async function authenticateMcpToken(token: string): Promise<McpAuth> {
   const row = rows[0];
   if (!row) return { ok: false, reason: "invalid" };
   if (row.revokedAt) return { ok: false, reason: "revoked" };
-  if (!(await isProUser(row.userId))) return { ok: false, reason: "not_pro" };
+  const plan = await getUserPlan(row.userId);
+  if (!plan.isPro) return { ok: false, reason: "not_pro" };
+  if (!plan.canGift && plan.proSource !== "subscription") {
+    return { ok: false, reason: "paid_only" };
+  }
   void sql`update "mcp_tokens" set "lastUsedAt" = CURRENT_TIMESTAMP where "id" = ${row.id}`.catch(
     () => undefined,
   );

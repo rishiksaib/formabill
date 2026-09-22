@@ -4,7 +4,14 @@
  *
  *   node scripts/grant-lifetime-pro.mjs user@example.com
  *   node scripts/grant-lifetime-pro.mjs --revoke user@example.com
+ *   node scripts/grant-lifetime-pro.mjs --can-gift user@example.com
  *   npm run grant:lifetime-pro -- user@example.com
+ *
+ * Gift codes can only be minted by paid subscribers (proSource =
+ * 'subscription'), so lifetime/admin grants never create them. Pass
+ * --can-gift to top up a SUBSCRIBER's gift quota instead (default 1):
+ *
+ *   node scripts/grant-lifetime-pro.mjs --can-gift [count] user@example.com
  *
  * Needs DATABASE_URL (it talks to the real Postgres). The local dev database
  * is an in-memory PGLite inside the running server process, which no outside
@@ -17,13 +24,16 @@
 import pg from "pg";
 
 function usage() {
-  console.log("usage: node scripts/grant-lifetime-pro.mjs [--revoke] <email>");
-  console.log("       npm run grant:lifetime-pro -- [--revoke] <email>");
+  console.log("usage: node scripts/grant-lifetime-pro.mjs [--revoke] [--can-gift [count]] <email>");
+  console.log("       npm run grant:lifetime-pro -- [--revoke] [--can-gift [count]] <email>");
 }
 
 const argv = process.argv.slice(2);
 const revoke = argv.includes("--revoke");
-const email = argv.find((arg) => !arg.startsWith("--"));
+const canGift = argv.includes("--can-gift");
+const email = argv.find((arg) => !arg.startsWith("--") && !/^\d+$/.test(arg));
+const quotaArg = argv.find((arg) => /^\d+$/.test(arg));
+const TOPUP_QUOTA = quotaArg ? Math.max(1, Math.min(99, Number(quotaArg))) : 1;
 
 if (!email || email === "--help" || email === "-h") {
   usage();
@@ -52,12 +62,30 @@ try {
     console.error(`[grant:lifetime-pro] no user found for ${email} — ask them to sign up first.`);
     process.exit(1);
   }
+  if (revoke) {
+    await pool.query(
+      `update "user" set "isLifetimePro" = false, "updatedAt" = CURRENT_TIMESTAMP where "id" = $1`,
+      [user.id],
+    );
+    console.log(`[grant:lifetime-pro] ${user.email} lifetime Pro revoked (id ${user.id}).`);
+    return;
+  }
+  if (canGift) {
+    await pool.query(
+      `update "user" set "canGift" = true, "giftsRemaining" = $1, "updatedAt" = CURRENT_TIMESTAMP where "id" = $2`,
+      [TOPUP_QUOTA, user.id],
+    );
+    console.log(
+      `[grant:lifetime-pro] ${user.email} gift quota topped up to ${TOPUP_QUOTA} (id ${user.id}). No source flags changed.`,
+    );
+    return;
+  }
   await pool.query(
-    `update "user" set "isLifetimePro" = $1, "updatedAt" = CURRENT_TIMESTAMP where "id" = $2`,
-    [!revoke, user.id],
+    `update "user" set "isLifetimePro" = true, "updatedAt" = CURRENT_TIMESTAMP where "id" = $1`,
+    [user.id],
   );
   console.log(
-    `[grant:lifetime-pro] ${user.email} lifetime Pro ${revoke ? "revoked" : "granted"} (id ${user.id}).`,
+    `[grant:lifetime-pro] ${user.email} lifetime Pro granted without gifting (id ${user.id}).`,
   );
 } finally {
   await pool.end();

@@ -1,5 +1,7 @@
 import { getSql } from "@/lib/db";
 
+export type ProSource = "subscription" | "gift" | "lifetime" | "admin";
+
 export type UserPlan = {
   /** Effective Pro: subscription, time-boxed grant, lifetime flag, or env allowlist. */
   isPro: boolean;
@@ -9,7 +11,20 @@ export type UserPlan = {
   proPlan: string | null;
   /** ISO expiry when Pro comes from a gift/reward grant, else null. */
   proExpiresAt: string | null;
+  /** Where this user's Pro came from (null = free). */
+  proSource: ProSource | null;
+  /** Whether this user may currently mint gift codes. */
+  canGift: boolean;
+  /** Gift codes left to mint (ignored for env-allowlisted founders). */
+  giftsRemaining: number;
 };
+
+/**
+ * Gift codes granted per successful paid Pro payment: exactly 1 per billing
+ * period. A monthly payment unlocks one 7-day code; a yearly payment unlocks
+ * one 30-day code. Never refilled except by a new payment.
+ */
+export const GIFTS_PER_PRO_PAYMENT = 1;
 
 /** A Pro "month" is 30 days for gift/reward grants. */
 export const PRO_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
@@ -37,7 +52,14 @@ type UserPlanRow = {
   isLifetimePro: boolean;
   proPlan: string | null;
   proExpiresAt: string | null;
+  proSource: string | null;
+  canGift: boolean;
+  giftsRemaining: number;
 };
+
+function isProSource(value: unknown): value is ProSource {
+  return value === "subscription" || value === "gift" || value === "lifetime" || value === "admin";
+}
 
 /**
  * Resolve a user's plan. Lifetime wins over everything: the `isLifetimePro`
@@ -47,11 +69,22 @@ type UserPlanRow = {
 export async function getUserPlan(userId: string): Promise<UserPlan> {
   const sql = await getSql();
   const rows = await sql<UserPlanRow>`
-    select "id", "email", "isPro", "isLifetimePro", "proPlan", "proExpiresAt"
+    select "id", "email", "isPro", "isLifetimePro", "proPlan", "proExpiresAt",
+      "proSource", "canGift", "giftsRemaining"
     from "user" where "id" = ${userId} limit 1
   `;
   const row = rows[0];
-  if (!row) return { isPro: false, isLifetimePro: false, proPlan: null, proExpiresAt: null };
+  if (!row) {
+    return {
+      isPro: false,
+      isLifetimePro: false,
+      proPlan: null,
+      proExpiresAt: null,
+      proSource: null,
+      canGift: false,
+      giftsRemaining: 0,
+    };
+  }
   const allowlisted = lifetimeAllowlist().has(String(row.email ?? "").toLowerCase());
   const isLifetimePro = Boolean(row.isLifetimePro) || allowlisted;
   const activeGrant =
@@ -61,7 +94,21 @@ export async function getUserPlan(userId: string): Promise<UserPlan> {
     isLifetimePro,
     proPlan: row.proPlan ?? null,
     proExpiresAt: row.proExpiresAt != null ? String(row.proExpiresAt) : null,
+    proSource: isProSource(row.proSource) ? row.proSource : null,
+    // Env-allowlisted founders are explicitly trusted: gifting stays open.
+    canGift: Boolean(row.canGift) || allowlisted,
+    giftsRemaining: Number(row.giftsRemaining ?? 0),
   };
+}
+
+/** True when the founder allowlist covers this user (unlimited gifting). */
+export async function isAllowlistedFounder(userId: string): Promise<boolean> {
+  const sql = await getSql();
+  const rows = await sql<{ email: string }>`
+    select "email" from "user" where "id" = ${userId} limit 1
+  `;
+  const email = rows[0]?.email;
+  return Boolean(email) && lifetimeAllowlist().has(String(email).toLowerCase());
 }
 
 /** Effective Pro check used by limits, MCP auth, and status endpoints. */
@@ -74,15 +121,25 @@ export async function setUserPro(userId: string, isPro: boolean): Promise<void> 
   await sql`update "user" set "isPro" = ${isPro}, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
 }
 
-/** Record a paid checkout plan alongside permanent Pro (webhook action). */
-export async function setUserProPlan(userId: string, plan: string): Promise<void> {
+/**
+ * Extend a user's time-boxed Pro by whole days, stacking on any remaining
+ * grant (a fresh recipient gets exactly now + days). Permanent flags untouched.
+ */
+export async function grantProDays(userId: string, days: number): Promise<string> {
   const sql = await getSql();
-  await sql`update "user" set "proPlan" = ${plan}, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
+  const rows = await sql<{ proExpiresAt: string | null }>`
+    select "proExpiresAt" from "user" where "id" = ${userId} limit 1
+  `;
+  const current = rows[0]?.proExpiresAt != null ? Date.parse(String(rows[0].proExpiresAt)) : NaN;
+  const base = Number.isFinite(current) ? Math.max(current, Date.now()) : Date.now();
+  const expiresAt = new Date(base + days * 24 * 60 * 60 * 1000).toISOString();
+  await sql`update "user" set "proExpiresAt" = ${expiresAt}, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
+  return expiresAt;
 }
 
 /**
- * Extend a user's time-boxed Pro by whole months (gift redemption, referral
- * rewards). Stacks on top of any remaining grant; permanent flags untouched.
+ * Extend a user's time-boxed Pro by whole months (referral rewards).
+ * Stacks on top of any remaining grant; permanent flags untouched.
  */
 export async function grantProMonths(userId: string, months: number): Promise<string> {
   const sql = await getSql();
@@ -96,10 +153,41 @@ export async function grantProMonths(userId: string, months: number): Promise<st
   return expiresAt;
 }
 
-/** Permanently flag a user as lifetime Pro (admin action). */
-export async function setUserLifetimePro(userId: string, value: boolean): Promise<void> {
+/**
+ * Permanently flag a user as lifetime Pro (admin action). Gifting stays off
+ * unless explicitly allowed — pass a quota to let this grant mint codes.
+ */
+export async function setUserLifetimePro(
+  userId: string,
+  value: boolean,
+  giftsRemaining?: number,
+): Promise<void> {
   const sql = await getSql();
-  await sql`update "user" set "isLifetimePro" = ${value}, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
+  if (giftsRemaining === undefined) {
+    await sql`update "user" set "isLifetimePro" = ${value}, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
+    return;
+  }
+  await sql`update "user" set "isLifetimePro" = ${value}, "canGift" = ${value}, "giftsRemaining" = ${giftsRemaining}, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
+}
+
+/** Record a paid Pro purchase: source, gifting rights, and fresh quota. */
+export async function setUserSubscriptionPro(userId: string, plan: string): Promise<void> {
+  const sql = await getSql();
+  await sql`update "user" set "isPro" = true, "proPlan" = ${plan}, "proSource" = 'subscription', "canGift" = true, "giftsRemaining" = ${GIFTS_PER_PRO_PAYMENT}, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
+}
+
+/**
+ * Consume one unit of gift quota atomically. Returns false when none remains
+ * (caller must roll back any code already minted).
+ */
+export async function consumeGiftQuota(userId: string): Promise<boolean> {
+  const sql = await getSql();
+  const rows = await sql<{ id: string }>`
+    update "user" set "giftsRemaining" = "giftsRemaining" - 1, "updatedAt" = CURRENT_TIMESTAMP
+    where "id" = ${userId} and "giftsRemaining" > 0
+    returning "id"
+  `;
+  return rows.length > 0;
 }
 
 /** Look up a user id by email (admin action). Returns null when unknown. */

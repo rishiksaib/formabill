@@ -1,5 +1,6 @@
 import {
   Document,
+  Font,
   Image,
   Page,
   StyleSheet,
@@ -10,11 +11,24 @@ import {
 import type { Invoice } from "@/lib/types";
 import { formatDate, formatMoney, invoiceSubtotal, invoiceTax, invoiceTotal, lineAmount } from "@/lib/utils";
 
+/**
+ * Embedded Roboto (WOFF) — the PDF renderer's built-in Helvetica has no
+ * U+20B9 (₹) glyph, so INR amounts rendered as junk. These files were
+ * cmap-verified to contain ₹, $, €, £, and full Latin in both weights.
+ */
+Font.register({
+  family: "FormaBill",
+  fonts: [
+    { src: "/fonts/Roboto-Regular.woff", fontWeight: 400 },
+    { src: "/fonts/Roboto-Bold.woff", fontWeight: 700 },
+  ],
+});
+
 const styles = StyleSheet.create({
   page: {
     padding: 48,
     fontSize: 10,
-    fontFamily: "Helvetica",
+    fontFamily: "FormaBill",
     color: "#171512",
     backgroundColor: "#FFFEF9",
   },
@@ -26,7 +40,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     marginBottom: 24,
   },
-  studio: { fontSize: 16, fontFamily: "Times-Roman" },
+  studio: { fontSize: 16, fontFamily: "FormaBill", fontWeight: 700 },
   muted: { color: "#6B6660", marginTop: 4 },
   kicker: {
     fontSize: 9,
@@ -66,7 +80,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#E4DFD6",
     paddingTop: 8,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "FormaBill",
+    fontWeight: 700,
   },
   notes: { marginTop: 28 },
   footer: {

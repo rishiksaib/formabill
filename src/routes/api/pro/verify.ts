@@ -4,7 +4,7 @@ import { verifyPlatformPayment } from "@/lib/platform-billing.server";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rate-limit.server";
 import { maybeRewardReferrer } from "@/lib/referrals.server";
 import { requireRequestUserId } from "@/lib/request-auth.server";
-import { setUserPro, setUserProPlan } from "@/lib/user-plan.server";
+import { setUserSubscriptionPro } from "@/lib/user-plan.server";
 
 /**
  * Confirm a Checkout modal payment immediately (webhook stays authoritative).
@@ -39,8 +39,7 @@ export const Route = createFileRoute("/api/pro/verify")({
               { status: 202 },
             );
           }
-          await setUserPro(verified.userId, true);
-          await setUserProPlan(verified.userId, verified.plan);
+          await setUserSubscriptionPro(verified.userId, verified.plan);
           await maybeRewardReferrer(verified.userId);
           return Response.json({ ok: true, plan: verified.plan });
         } catch (error) {

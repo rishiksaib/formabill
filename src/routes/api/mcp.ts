@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MCP_UPGRADE_MESSAGE, authenticateMcpToken } from "@/lib/mcp-tokens.server";
+import {
+  MCP_PAID_ONLY_MESSAGE,
+  MCP_UPGRADE_MESSAGE,
+  authenticateMcpToken,
+} from "@/lib/mcp-tokens.server";
 import { callMcpTool, listMcpTools } from "@/lib/mcp-tools.server";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rate-limit.server";
 
@@ -28,12 +32,29 @@ type JsonRpcRequest = {
   params?: unknown;
 };
 
+/** Permissive CORS: Bearer tokens carry auth, so any origin may call. */
+function corsHeaders(): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, Mcp-Protocol-Version",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
 function response(id: JsonRpcId, result: unknown): Response {
-  return Response.json({ jsonrpc: "2.0", id, result });
+  return Response.json({ jsonrpc: "2.0", id, result }, { headers: corsHeaders() });
 }
 
 function error(id: JsonRpcId, code: number, message: string): Response {
-  return Response.json({ jsonrpc: "2.0", id, error: { code, message } });
+  return Response.json(
+    { jsonrpc: "2.0", id, error: { code, message } },
+    { headers: corsHeaders() },
+  );
+}
+
+function httpError(message: string, status: number): Response {
+  return Response.json({ error: message }, { status, headers: corsHeaders() });
 }
 
 function bearerToken(request: Request): string | null {
@@ -97,14 +118,20 @@ export const Route = createFileRoute("/api/mcp")({
             error:
               "FormaBill MCP endpoint. Connect with Streamable HTTP: POST JSON-RPC to this URL with an Authorization: Bearer <token> header.",
           },
-          { status: 405, headers: { Allow: "POST" } },
+          { status: 405, headers: { Allow: "POST", ...corsHeaders() } },
         ),
+      // CORS preflight for browser- and extension-based MCP clients.
+      OPTIONS: () =>
+        new Response(null, {
+          status: 204,
+          headers: corsHeaders(),
+        }),
       POST: async ({ request }) => {
         const token = bearerToken(request);
         if (!token) {
-          return Response.json(
-            { error: "Missing MCP token. Send Authorization: Bearer <token> (Settings → AI / MCP)." },
-            { status: 401 },
+          return httpError(
+            "Missing MCP token. Send Authorization: Bearer <token> (Settings → AI / MCP).",
+            401,
           );
         }
         const auth = await authenticateMcpToken(token).catch(() => null);
@@ -112,14 +139,21 @@ export const Route = createFileRoute("/api/mcp")({
           const message =
             auth?.reason === "not_pro"
               ? MCP_UPGRADE_MESSAGE
-              : "Invalid or revoked MCP token. Generate a new one in Settings → AI / MCP.";
-          return Response.json(
-            { error: message },
-            { status: auth?.reason === "not_pro" ? 403 : 401 },
+              : auth?.reason === "paid_only"
+                ? MCP_PAID_ONLY_MESSAGE
+                : "Invalid or revoked MCP token. Generate a new one in Settings → AI / MCP.";
+          return httpError(
+            message,
+            auth?.reason === "not_pro" || auth?.reason === "paid_only" ? 403 : 401,
           );
         }
         const limit = checkRateLimit(`mcp:${auth.tokenId}`, 100, 60_000);
-        if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSec);
+        if (!limit.allowed) {
+          const limited = rateLimitedResponse(limit.retryAfterSec);
+          const headers = new Headers(limited.headers);
+          for (const [key, value] of Object.entries(corsHeaders())) headers.set(key, value);
+          return new Response(limited.body, { status: limited.status, headers });
+        }
 
         let body: unknown;
         try {
@@ -137,10 +171,15 @@ export const Route = createFileRoute("/api/mcp")({
               return res.json();
             }),
           );
-          return Response.json(settled.filter((entry) => entry !== null));
+          return Response.json(settled.filter((entry) => entry !== null), {
+            headers: corsHeaders(),
+          });
         }
         const res = await handleOne(request, auth.userId, body);
-        return res ?? new Response(null, { status: 202 });
+        if (!res) return new Response(null, { status: 202, headers: corsHeaders() });
+        const headers = new Headers(res.headers);
+        for (const [key, value] of Object.entries(corsHeaders())) headers.set(key, value);
+        return new Response(res.body, { status: res.status, headers });
       },
     },
   },

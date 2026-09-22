@@ -1,11 +1,24 @@
 import { randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
 import { maybeRewardReferrer } from "@/lib/referrals.server";
-import { PRO_MONTH_MS, getUserPlan, grantProMonths } from "@/lib/user-plan.server";
+import {
+  consumeGiftQuota,
+  getUserPlan,
+  grantProDays,
+} from "@/lib/user-plan.server";
 import { uid } from "@/lib/utils";
 
-export const GIFT_DURATIONS = [1, 3, 6, 12] as const;
-export type GiftDuration = (typeof GIFT_DURATIONS)[number];
+/**
+ * What each paid plan can gift: monthly buys one 7-day code per period,
+ * yearly buys one 30-day code per year. Tight by design — gift recipients
+ * never gain gifting rights, so free Pro cannot multiply.
+ */
+export const GIFT_GRANTS = {
+  pro_monthly: { days: 7, label: "7 days Pro", quotaLine: "1 friend · 7 days Pro · 1 code/month" },
+  pro_yearly: { days: 30, label: "1 month Pro", quotaLine: "1 friend · 1 month Pro · 1 code/year" },
+} as const;
+
+export type GiftGrantPlan = keyof typeof GIFT_GRANTS;
 
 /** Gift codes stay redeemable for 90 days after creation. */
 export const GIFT_CODE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -30,6 +43,8 @@ export type GiftCodeInfo = {
   id: string;
   code: string;
   durationMonths: number;
+  giftDurationDays: number;
+  planType: string | null;
   status: GiftCodeStatus;
   createdAt: string;
   expiresAt: string;
@@ -41,6 +56,8 @@ type GiftCodeRow = {
   code: string;
   createdBy: string;
   durationMonths: number;
+  giftDurationDays: number | null;
+  planType: string | null;
   expiresAt: string;
   redeemedBy: string | null;
   redeemedAt: string | null;
@@ -76,6 +93,8 @@ function toInfo(row: GiftCodeRow): GiftCodeInfo {
     id: row.id,
     code: formatGiftCode(row.code),
     durationMonths: row.durationMonths,
+    giftDurationDays: row.giftDurationDays ?? row.durationMonths * 30,
+    planType: row.planType,
     status: giftStatus(row),
     createdAt: String(row.createdAt),
     expiresAt: String(row.expiresAt),
@@ -83,37 +102,54 @@ function toInfo(row: GiftCodeRow): GiftCodeInfo {
   };
 }
 
-/**
- * Longest gift duration (months) a user may create: equal to or shorter than
- * their own Pro plan. Lifetime → any. Paid plan → its length. Time-boxed
- * grant → remaining window (rounded up, capped at 12).
- */
-export async function maxGiftMonths(userId: string): Promise<number> {
-  const plan = await getUserPlan(userId);
-  if (!plan.isPro) throw new GiftProRequiredError();
-  if (plan.isLifetimePro) return 12;
-  if (plan.proPlan === "pro_yearly") return 12;
-  if (plan.proPlan === "pro_monthly") return 1;
-  if (plan.proExpiresAt) {
-    const remainingMs = Date.parse(plan.proExpiresAt) - Date.now();
-    if (remainingMs <= 0) throw new GiftProRequiredError();
-    return Math.min(12, Math.max(1, Math.ceil(remainingMs / PRO_MONTH_MS)));
-  }
-  // Permanent flag Pro without a recorded plan (legacy webhook rows).
-  return 12;
+/** Human grant length for a day count (`7 days`, `1 month`, `90 days`). */
+export function giftDaysLabel(days: number): string {
+  if (days === 30) return "1 month";
+  if (days % 30 === 0) return `${days / 30} months`;
+  return `${days} days`;
 }
 
-/** Create a single-use gift code. Duration must fit the granter's own plan. */
-export async function createGiftCode(userId: string, durationMonths: number): Promise<GiftCodeInfo> {
-  if (!GIFT_DURATIONS.includes(durationMonths as GiftDuration)) {
-    throw new Error(`"durationMonths" must be one of ${GIFT_DURATIONS.join(", ")}.`);
+/**
+ * The fixed grant a paid subscriber may mint, derived from their own plan:
+ * monthly → 7 days, yearly → 30 days. Anything else (gift, lifetime, free)
+ * cannot mint at all.
+ */
+export async function giftGrantFor(userId: string): Promise<{ days: number; plan: GiftGrantPlan }> {
+  const plan = await getUserPlan(userId);
+  if (!plan.isPro) throw new GiftProRequiredError();
+  if (plan.proSource !== "subscription") {
+    throw new GiftQuotaExhaustedError("Your Pro plan doesn't include gift codes.");
   }
-  const allowed = await maxGiftMonths(userId);
-  if (durationMonths > allowed) {
-    throw new Error(
-      `You can only gift up to ${allowed} month${allowed === 1 ? "" : "s"} with your current Pro plan.`,
+  if (plan.proPlan === "pro_yearly") return { days: GIFT_GRANTS.pro_yearly.days, plan: "pro_yearly" };
+  return { days: GIFT_GRANTS.pro_monthly.days, plan: "pro_monthly" };
+}
+
+export class GiftQuotaExhaustedError extends Error {
+  readonly status = 403;
+  constructor(message?: string) {
+    super(message ?? "You've used all your gift codes.");
+    this.name = "GiftQuotaExhaustedError";
+  }
+}
+
+/**
+ * Create a single-use gift code. Strict rule: the granter must hold a paid
+ * subscription (`proSource === "subscription"`) with remaining quota. The
+ * grant is fixed by their plan (monthly → 7 days, yearly → 30 days) and one
+ * quota unit is consumed. Gift, lifetime, and free users are all rejected —
+ * recipients can never mint, so free Pro cannot multiply.
+ */
+export async function createGiftCode(userId: string): Promise<GiftCodeInfo> {
+  const plan = await getUserPlan(userId);
+  if (!plan.isPro) throw new GiftProRequiredError();
+  if (plan.proSource !== "subscription" || !plan.canGift || plan.giftsRemaining < 1) {
+    throw new GiftQuotaExhaustedError(
+      plan.proSource !== "subscription"
+        ? "Your Pro plan doesn't include gift codes."
+        : "You've used all your gift codes.",
     );
   }
+  const grant = await giftGrantFor(userId);
   const sql = await getSql();
   const active = await sql<{ count: string }>`
     select count(*)::text as count from "gift_codes"
@@ -127,12 +163,18 @@ export async function createGiftCode(userId: string, durationMonths: number): Pr
     const code = randomCode().replace(/-/g, "");
     try {
       const rows = await sql<GiftCodeRow>`
-        insert into "gift_codes" ("id", "code", "createdBy", "durationMonths", "expiresAt")
-        values (${uid()}, ${code}, ${userId}, ${durationMonths}, ${new Date(Date.now() + GIFT_CODE_TTL_MS).toISOString()})
-        returning "id", "code", "createdBy", "durationMonths", "expiresAt", "redeemedBy", "redeemedAt", "createdAt"
+        insert into "gift_codes" ("id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt")
+        values (${uid()}, ${code}, ${userId}, ${Math.max(1, Math.round(grant.days / 30))}, ${grant.days}, ${grant.plan}, ${new Date(Date.now() + GIFT_CODE_TTL_MS).toISOString()})
+        returning "id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt", "redeemedBy", "redeemedAt", "createdAt"
       `;
+      if (!(await consumeGiftQuota(userId))) {
+        // Lost a race for the last unit — roll the code back.
+        await sql`delete from "gift_codes" where "id" = ${rows[0].id}`;
+        throw new GiftQuotaExhaustedError();
+      }
       return toInfo(rows[0]);
-    } catch {
+    } catch (error) {
+      if (error instanceof GiftQuotaExhaustedError) throw error;
       // Unique collision — mint another code.
     }
   }
@@ -143,7 +185,7 @@ export async function createGiftCode(userId: string, durationMonths: number): Pr
 export async function listGiftCodes(userId: string): Promise<GiftCodeInfo[]> {
   const sql = await getSql();
   const rows = await sql<GiftCodeRow>`
-    select "id", "code", "createdBy", "durationMonths", "expiresAt", "redeemedBy", "redeemedAt", "createdAt"
+    select "id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt", "redeemedBy", "redeemedAt", "createdAt"
     from "gift_codes" where "createdBy" = ${userId} order by "createdAt" desc
   `;
   return rows.map(toInfo);
@@ -162,7 +204,7 @@ export function normalizeGiftCode(input: string): string {
 export async function redeemGiftCode(
   userId: string,
   input: string,
-): Promise<{ durationMonths: number; proExpiresAt: string }> {
+): Promise<{ durationMonths: number; giftDurationDays: number; proExpiresAt: string }> {
   const code = normalizeGiftCode(input);
   if (!code) throw new Error("Enter a gift code.");
   const sql = await getSql();
@@ -170,7 +212,7 @@ export async function redeemGiftCode(
     update "gift_codes"
     set "redeemedBy" = ${userId}, "redeemedAt" = CURRENT_TIMESTAMP
     where "code" = ${code} and "redeemedBy" is null and "expiresAt" > CURRENT_TIMESTAMP
-    returning "id", "code", "createdBy", "durationMonths", "expiresAt", "redeemedBy", "redeemedAt", "createdAt"
+    returning "id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt", "redeemedBy", "redeemedAt", "createdAt"
   `;
   const row = claimed[0];
   if (!row) {
@@ -186,7 +228,14 @@ export async function redeemGiftCode(
     await sql`update "gift_codes" set "redeemedBy" = null, "redeemedAt" = null where "id" = ${row.id}`;
     throw new Error("You can't redeem your own gift code — it's meant for someone else.");
   }
-  const proExpiresAt = await grantProMonths(userId, row.durationMonths);
+  // Read first: existing subscribers/lifetime users keep their own source —
+  // only fresh recipients become gift-Pro, with no gifting rights and no quota.
+  const alreadyPro = await getUserPlan(userId);
+  const days = row.giftDurationDays ?? row.durationMonths * 30;
+  const proExpiresAt = await grantProDays(userId, days);
+  if (!alreadyPro.isPro) {
+    await sql`update "user" set "proSource" = 'gift', "canGift" = false, "giftsRemaining" = 0, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
+  }
   await maybeRewardReferrer(userId);
-  return { durationMonths: row.durationMonths, proExpiresAt };
+  return { durationMonths: row.durationMonths, giftDurationDays: days, proExpiresAt };
 }
