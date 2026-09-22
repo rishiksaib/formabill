@@ -55,7 +55,11 @@ type UserPlanRow = {
   proSource: string | null;
   canGift: boolean;
   giftsRemaining: number;
+  lifetimeGiftGranted?: boolean | null;
 };
+
+/** Founder gift quota: one-time pool granted to lifetime accounts. */
+export const LIFETIME_GIFT_QUOTA = 3;
 
 function isProSource(value: unknown): value is ProSource {
   return value === "subscription" || value === "gift" || value === "lifetime" || value === "admin";
@@ -81,7 +85,7 @@ export async function getUserPlan(userId: string): Promise<UserPlan> {
   try {
     rows = await sql<UserPlanRow>`
       select "id", "email", "isPro", "isLifetimePro", "proPlan", "proExpiresAt",
-        "proSource", "canGift", "giftsRemaining"
+        "proSource", "canGift", "giftsRemaining", "lifetimeGiftGranted"
       from "user" where "id" = ${userId} limit 1
     `;
   } catch (error) {
@@ -125,16 +129,42 @@ export async function getUserPlan(userId: string): Promise<UserPlan> {
   }
   const allowlisted = lifetimeAllowlist().has(String(row.email ?? "").toLowerCase());
   const isLifetimePro = Boolean(row.isLifetimePro) || allowlisted;
+  if (isLifetimePro) {
+    // Lifetime is never gift: repair stale rows (e.g. a founder once marked
+    // gift) and grant the founder quota exactly once. Spent quota is never
+    // refilled by reads — top up explicitly via the grant script.
+    let giftsRemaining = Number(row.giftsRemaining ?? 0);
+    if (row.proSource !== "lifetime" || !row.lifetimeGiftGranted) {
+      try {
+        await sql`update "user" set "proSource" = 'lifetime', "canGift" = true,
+          "giftsRemaining" = greatest(coalesce("giftsRemaining", 0), ${LIFETIME_GIFT_QUOTA}),
+          "lifetimeGiftGranted" = true, "updatedAt" = CURRENT_TIMESTAMP
+          where "id" = ${userId}`;
+        giftsRemaining = Math.max(giftsRemaining, LIFETIME_GIFT_QUOTA);
+      } catch {
+        // Pre-0012 schema: serve computed values; migrations fix the row.
+        giftsRemaining = Math.max(giftsRemaining, LIFETIME_GIFT_QUOTA);
+      }
+    }
+    return {
+      isPro: true,
+      isLifetimePro: true,
+      proPlan: row.proPlan ?? null,
+      proExpiresAt: row.proExpiresAt != null ? String(row.proExpiresAt) : null,
+      proSource: "lifetime",
+      canGift: true,
+      giftsRemaining,
+    };
+  }
   const activeGrant =
     row.proExpiresAt != null && Date.parse(String(row.proExpiresAt)) > Date.now();
   return {
-    isPro: Boolean(row.isPro) || isLifetimePro || activeGrant,
-    isLifetimePro,
+    isPro: Boolean(row.isPro) || activeGrant,
+    isLifetimePro: false,
     proPlan: row.proPlan ?? null,
     proExpiresAt: row.proExpiresAt != null ? String(row.proExpiresAt) : null,
     proSource: isProSource(row.proSource) ? row.proSource : null,
-    // Env-allowlisted founders are explicitly trusted: gifting stays open.
-    canGift: Boolean(row.canGift) || allowlisted,
+    canGift: Boolean(row.canGift),
     giftsRemaining: Number(row.giftsRemaining ?? 0),
   };
 }

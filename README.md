@@ -185,7 +185,7 @@ These platform credentials are for FormaBill’s merchant account. They must nev
 
 ### Lifetime Pro (founder / test accounts)
 
-Some users are Pro forever without a subscription: a permanent `isLifetimePro` flag on the user row, or a server-only email allowlist. Both flow through the same Pro check, so lifetime users bypass invoice limits, see the Pro badge, and can use MCP. No email is hardcoded anywhere in the frontend.
+Some users are Pro forever without a subscription: a permanent `isLifetimePro` flag on the user row, or a server-only email allowlist. Lifetime is resolved first and can never come back as `gift` — stale gift-sourced lifetime rows self-repair on next status load. Lifetime users bypass invoice limits, see the Pro badge, can use MCP, and may mint 30-day gift codes from a one-time pool of 3. No email is hardcoded anywhere in the frontend.
 
 - **Automatic (recommended for the founder):** set the server env var before starting the app —
   `LIFETIME_PRO_EMAILS="rishiksaibandari@gmail.com"` (comma-separated for several). Anyone listed is lifetime Pro on every backend, including local dev.
@@ -245,7 +245,7 @@ Security: a key equals full account access to invoices, clients, and settings. R
 
 ## Gift codes & referrals (Pro)
 
-**Gift codes** let *paid* subscribers — and only them — give time-boxed Pro to anyone. This is what stops infinite Pro loops: creation requires `proSource === 'subscription'` plus remaining quota, and recipients become gift-Pro with zero gifting rights. Settings → **Gift codes** mints exactly one code per billing period: monthly plans grant **7 days** of Pro, yearly plans grant **30 days**. Each paid Pro payment sets `giftsRemaining = 1` (never refilled otherwise); creating consumes the unit. Codes look like `PRO-XXXX-XXXX`, are single-use, expire 90 days after creation, and stack on any remaining grant. The recipient pastes the code in the same Settings section (Redeem works for any signed-in user, including free ones); you can’t redeem your own code. Creation is throttled (20/min, max 20 live unused codes). Lifetime, admin, and env-allowlisted accounts cannot mint codes; `--can-gift` on the grant script only tops up an existing subscriber’s quota for testing.
+**Gift codes** let paid subscribers and lifetime accounts — and only them — give time-boxed Pro to anyone. This is what stops infinite Pro loops: creation requires remaining quota, and recipients become gift-Pro (`proSource: gift`) with zero gifting rights. Paid plans mint exactly one code per billing period (monthly → **7 days**, yearly → **30 days**); lifetime accounts grant **30 days** from a one-time pool of 3. Each paid Pro payment sets `giftsRemaining = 1` (never refilled otherwise); creating consumes the unit. Codes look like `PRO-XXXX-XXXX`, are single-use, expire 90 days after creation. Only **free** accounts may redeem — already-Pro users get “You’re already on Pro” and the code stays valid for someone else; you can’t redeem your own code. Creation is throttled (20/min, max 20 live unused codes). The grant script’s `--can-gift` tops up quota for testing.
 
 **Referrals**: every signed-in user has a link (`/?ref=CODE`, auto-captured on landing) with signup/Pro/months-earned stats in Settings → **Referrals**. When an invitee becomes Pro by paying or redeeming a gift, the referrer gets +1 free month, stacked — once per invitee. Self-referral, double attribution, and lifetime/env grants never pay out.
 

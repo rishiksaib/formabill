@@ -26,10 +26,15 @@ export const Route = createFileRoute("/api/gift-codes")({
             listGiftCodes(userId),
             getUserPlan(userId).catch(() => null),
           ]);
-          const grant =
-            plan?.proSource === "subscription"
-              ? GIFT_GRANTS[plan.proPlan === "pro_yearly" ? "pro_yearly" : "pro_monthly"]
-              : null;
+          const grantKey =
+            plan?.isLifetimePro
+              ? "lifetime"
+              : plan?.proSource === "subscription"
+                ? plan.proPlan === "pro_yearly"
+                  ? "pro_yearly"
+                  : "pro_monthly"
+                : null;
+          const grant = grantKey ? GIFT_GRANTS[grantKey] : null;
           return Response.json({
             codes,
             canGift: plan?.canGift ?? false,
@@ -37,9 +42,9 @@ export const Route = createFileRoute("/api/gift-codes")({
             proSource: plan?.proSource ?? null,
             grantDays: grant?.days ?? null,
             grantLabel: grant
-              ? plan?.proPlan === "pro_yearly"
-                ? "1 friend · 1 month Pro · 1 code/year"
-                : "1 friend · 7 days Pro · 1 code/month"
+              ? plan?.isLifetimePro
+                ? "1 friend · 1 month Pro per code"
+                : grant.quotaLine
               : null,
           });
         } catch (error) {

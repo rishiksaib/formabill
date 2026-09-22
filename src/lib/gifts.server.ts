@@ -16,6 +16,7 @@ import { uid } from "@/lib/utils";
 export const GIFT_GRANTS = {
   pro_monthly: { days: 7, label: "7 days Pro", quotaLine: "1 friend · 7 days Pro · 1 code/month" },
   pro_yearly: { days: 30, label: "1 month Pro", quotaLine: "1 friend · 1 month Pro · 1 code/year" },
+  lifetime: { days: 30, label: "1 month Pro", quotaLine: "1 month Pro per code" },
 } as const;
 
 export type GiftGrantPlan = keyof typeof GIFT_GRANTS;
@@ -110,13 +111,14 @@ export function giftDaysLabel(days: number): string {
 }
 
 /**
- * The fixed grant a paid subscriber may mint, derived from their own plan:
- * monthly → 7 days, yearly → 30 days. Anything else (gift, lifetime, free)
- * cannot mint at all.
+ * The fixed grant a user may mint: paid subscribers get their plan's grant
+ * (monthly → 7 days, yearly → 30 days); lifetime accounts grant 30 days.
+ * Gift-Pro and free users cannot mint at all.
  */
 export async function giftGrantFor(userId: string): Promise<{ days: number; plan: GiftGrantPlan }> {
   const plan = await getUserPlan(userId);
   if (!plan.isPro) throw new GiftProRequiredError();
+  if (plan.isLifetimePro) return { days: GIFT_GRANTS.lifetime.days, plan: "lifetime" };
   if (plan.proSource !== "subscription") {
     throw new GiftQuotaExhaustedError("Your Pro plan doesn't include gift codes.");
   }
@@ -134,17 +136,18 @@ export class GiftQuotaExhaustedError extends Error {
 
 /**
  * Create a single-use gift code. Strict rule: the granter must hold a paid
- * subscription (`proSource === "subscription"`) with remaining quota. The
- * grant is fixed by their plan (monthly → 7 days, yearly → 30 days) and one
- * quota unit is consumed. Gift, lifetime, and free users are all rejected —
- * recipients can never mint, so free Pro cannot multiply.
+ * subscription or lifetime Pro, with remaining quota. The grant is fixed
+ * (monthly → 7 days, yearly/lifetime → 30 days) and one quota unit is
+ * consumed. Gift-Pro and free users are rejected — recipients can never
+ * mint, so free Pro cannot multiply.
  */
 export async function createGiftCode(userId: string): Promise<GiftCodeInfo> {
   const plan = await getUserPlan(userId);
   if (!plan.isPro) throw new GiftProRequiredError();
-  if (plan.proSource !== "subscription" || !plan.canGift || plan.giftsRemaining < 1) {
+  const allowedSource = plan.proSource === "subscription" || plan.isLifetimePro;
+  if (!allowedSource || !plan.canGift || plan.giftsRemaining < 1) {
     throw new GiftQuotaExhaustedError(
-      plan.proSource !== "subscription"
+      !allowedSource
         ? "Your Pro plan doesn't include gift codes."
         : "You've used all your gift codes.",
     );
@@ -196,10 +199,20 @@ export function normalizeGiftCode(input: string): string {
   return input.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+export class GiftRedeemProError extends Error {
+  readonly status = 400;
+  constructor() {
+    super("You're already on Pro. Gift codes can only be redeemed by free accounts.");
+    this.name = "GiftRedeemProError";
+  }
+}
+
 /**
- * Redeem a gift code onto the caller's account: Pro for exactly the code's
- * duration, stacked on any remaining grant. Single-use (atomic claim), never
- * your own code, never expired. May also complete a pending referral reward.
+ * Redeem a gift code onto a FREE account: Pro for exactly the code's
+ * duration. Already-Pro users are rejected before anything is claimed, so
+ * the code stays valid for someone who needs it. Single-use (atomic claim),
+ * never your own code, never expired. May also complete a pending referral
+ * reward.
  */
 export async function redeemGiftCode(
   userId: string,
@@ -207,6 +220,8 @@ export async function redeemGiftCode(
 ): Promise<{ durationMonths: number; giftDurationDays: number; proExpiresAt: string }> {
   const code = normalizeGiftCode(input);
   if (!code) throw new Error("Enter a gift code.");
+  const redeemer = await getUserPlan(userId);
+  if (redeemer.isPro) throw new GiftRedeemProError();
   const sql = await getSql();
   const claimed = await sql<GiftCodeRow>`
     update "gift_codes"
@@ -228,14 +243,11 @@ export async function redeemGiftCode(
     await sql`update "gift_codes" set "redeemedBy" = null, "redeemedAt" = null where "id" = ${row.id}`;
     throw new Error("You can't redeem your own gift code — it's meant for someone else.");
   }
-  // Read first: existing subscribers/lifetime users keep their own source —
-  // only fresh recipients become gift-Pro, with no gifting rights and no quota.
-  const alreadyPro = await getUserPlan(userId);
+  // The redeemer was verified free above: tag them gift-Pro with no gifting
+  // rights and no quota. The loop ends here.
   const days = row.giftDurationDays ?? row.durationMonths * 30;
   const proExpiresAt = await grantProDays(userId, days);
-  if (!alreadyPro.isPro) {
-    await sql`update "user" set "proSource" = 'gift', "canGift" = false, "giftsRemaining" = 0, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
-  }
+  await sql`update "user" set "proSource" = 'gift', "canGift" = false, "giftsRemaining" = 0, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
   await maybeRewardReferrer(userId);
   return { durationMonths: row.durationMonths, giftDurationDays: days, proExpiresAt };
 }

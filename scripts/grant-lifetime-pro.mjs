@@ -7,9 +7,8 @@
  *   node scripts/grant-lifetime-pro.mjs --can-gift user@example.com
  *   npm run grant:lifetime-pro -- user@example.com
  *
- * Gift codes can only be minted by paid subscribers (proSource =
- * 'subscription'), so lifetime/admin grants never create them. Pass
- * --can-gift to top up a SUBSCRIBER's gift quota instead (default 1):
+ * Gift codes can be minted by paid subscribers and lifetime accounts with
+ * remaining quota. Pass --can-gift to top up anyone's gift quota (default 1):
  *
  *   node scripts/grant-lifetime-pro.mjs --can-gift [count] user@example.com
  *

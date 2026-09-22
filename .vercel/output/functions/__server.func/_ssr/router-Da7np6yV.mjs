@@ -39,7 +39,7 @@ var DEFAULT_SETTINGS = {
 	}
 };
 //#endregion
-//#region node_modules/.nitro/vite/services/ssr/assets/router-DBM2KZ1i.js
+//#region node_modules/.nitro/vite/services/ssr/assets/router-Da7np6yV.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 /**
@@ -490,23 +490,23 @@ var Route$30 = createRootRoute({
 });
 var $$splitComponentImporter$11 = () => import("./routes-DNV8i2Vl.mjs");
 var Route$29 = createFileRoute("/")({ component: lazyRouteComponent($$splitComponentImporter$11, "component") });
-var $$splitComponentImporter$10 = () => import("./app-CNCjhQVJ.mjs");
+var $$splitComponentImporter$10 = () => import("./app-B8mGcCfo.mjs");
 var Route$28 = createFileRoute("/app")({
 	ssr: false,
 	component: lazyRouteComponent($$splitComponentImporter$10, "component")
 });
-var $$splitComponentImporter$9 = () => import("./forgot-password-BuUuutfe.mjs");
+var $$splitComponentImporter$9 = () => import("./forgot-password-CZ_TzKzu.mjs");
 var Route$27 = createFileRoute("/forgot-password")({ component: lazyRouteComponent($$splitComponentImporter$9, "component") });
-var $$splitComponentImporter$8 = () => import("./login-BUAvY7IU.mjs");
+var $$splitComponentImporter$8 = () => import("./login-bHTd4L5s.mjs");
 var Route$26 = createFileRoute("/login")({ component: lazyRouteComponent($$splitComponentImporter$8, "component") });
-var $$splitComponentImporter$7 = () => import("./privacy-C4HLiLz-.mjs");
+var $$splitComponentImporter$7 = () => import("./privacy-B2T6VH3u.mjs");
 var Route$25 = createFileRoute("/privacy")({ component: lazyRouteComponent($$splitComponentImporter$7, "component") });
-var $$splitComponentImporter$6 = () => import("./reset-password-DTYCEYIu.mjs");
+var $$splitComponentImporter$6 = () => import("./reset-password-BxMAlxLf.mjs");
 var Route$24 = createFileRoute("/reset-password")({
 	validateSearch: (search) => ({ token: typeof search.token === "string" ? search.token : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$6, "component")
 });
-var $$splitComponentImporter$5 = () => import("./terms-CqV3AA9y.mjs");
+var $$splitComponentImporter$5 = () => import("./terms-DxBdYEWs.mjs");
 var Route$23 = createFileRoute("/terms")({ component: lazyRouteComponent($$splitComponentImporter$5, "component") });
 var SUPPORT_EMAIL = "support@formabill.app";
 function env$2(key) {
@@ -9379,6 +9379,7 @@ var _0008_gift_codes_default = "create table if not exists \"gift_codes\" (\n  \
 var _0009_referrals_default = "create table if not exists \"referral_codes\" (\n  \"userId\" text not null primary key references \"user\" (\"id\") on delete cascade,\n  \"code\" text not null unique,\n  \"createdAt\" timestamptz default CURRENT_TIMESTAMP not null\n);\n\ncreate table if not exists \"referrals\" (\n  \"id\" text not null primary key,\n  \"referrerUserId\" text not null references \"user\" (\"id\") on delete cascade,\n  \"referredUserId\" text not null unique references \"user\" (\"id\") on delete cascade,\n  \"createdAt\" timestamptz default CURRENT_TIMESTAMP not null,\n  \"rewardedAt\" timestamptz\n);\n\ncreate index if not exists \"referrals_referrer_idx\" on \"referrals\" (\"referrerUserId\");\n";
 var _0010_user_gifting_default = "alter table \"user\" add column if not exists \"proSource\" text;\nalter table \"user\" add column if not exists \"canGift\" boolean not null default false;\nalter table \"user\" add column if not exists \"giftsRemaining\" integer not null default 0;\n\n-- Backfill: the only server-side path that ever set isPro=true was the paid\n-- Razorpay webhook, so existing permanent-Pro rows are paid subscribers.\nupdate \"user\"\nset \"proSource\" = 'subscription', \"canGift\" = true, \"giftsRemaining\" = 3\nwhere \"isPro\" and \"proSource\" is null and not coalesce(\"isLifetimePro\", false);\n";
 var _0011_gift_day_grants_default = "alter table \"gift_codes\" add column if not exists \"giftDurationDays\" integer;\nalter table \"gift_codes\" add column if not exists \"planType\" text;\n\n-- Backfill day grants from the old month grants (1mo = 30 days) so existing\n-- unused codes keep their promised value under the new model.\nupdate \"gift_codes\"\nset \"giftDurationDays\" = \"durationMonths\" * 30\nwhere \"giftDurationDays\" is null;\n";
+var _0012_lifetime_gift_grant_default = "alter table \"user\" add column if not exists \"lifetimeGiftGranted\" boolean not null default false;\n";
 /**
 * Migration bookkeeping shared by the two appliers — `scripts/migrate.mjs`
 * (deploy, `readdir`) and `src/lib/db.ts` (PGLite preview, `import.meta.glob`).
@@ -9507,7 +9508,8 @@ async function createPgliteSql() {
 			"/migrations/0008_gift_codes.sql": _0008_gift_codes_default,
 			"/migrations/0009_referrals.sql": _0009_referrals_default,
 			"/migrations/0010_user_gifting.sql": _0010_user_gifting_default,
-			"/migrations/0011_gift_day_grants.sql": _0011_gift_day_grants_default
+			"/migrations/0011_gift_day_grants.sql": _0011_gift_day_grants_default,
+			"/migrations/0012_lifetime_gift_grant.sql": _0012_lifetime_gift_grant_default
 		});
 		const done = (await pg.query("select name from _migrations")).rows.map((r) => r.name);
 		for (const { name, path } of pendingMigrations(Object.keys(migrations), done)) await pg.transaction(async (tx) => {
@@ -10010,7 +10012,7 @@ var auth = betterAuth({
 		enabled: true,
 		resetPasswordTokenExpiresIn: 3600,
 		sendResetPassword: async ({ user, url }) => {
-			const { sendPasswordResetEmail } = await import("./mailer.server-BeihgS-j.mjs");
+			const { sendPasswordResetEmail } = await import("./mailer.server-DZ43x3Zd.mjs");
 			await sendPasswordResetEmail(user.email, url);
 		}
 	},
@@ -10386,7 +10388,7 @@ async function getUserPlan(userId) {
 	try {
 		rows = await sql`
       select "id", "email", "isPro", "isLifetimePro", "proPlan", "proExpiresAt",
-        "proSource", "canGift", "giftsRemaining"
+        "proSource", "canGift", "giftsRemaining", "lifetimeGiftGranted"
       from "user" where "id" = ${userId} limit 1
     `;
 	} catch (error) {
@@ -10416,15 +10418,35 @@ async function getUserPlan(userId) {
 		giftsRemaining: 0
 	};
 	const allowlisted = lifetimeAllowlist().has(String(row.email ?? "").toLowerCase());
-	const isLifetimePro = Boolean(row.isLifetimePro) || allowlisted;
+	if (Boolean(row.isLifetimePro) || allowlisted) {
+		let giftsRemaining = Number(row.giftsRemaining ?? 0);
+		if (row.proSource !== "lifetime" || !row.lifetimeGiftGranted) try {
+			await sql`update "user" set "proSource" = 'lifetime', "canGift" = true,
+          "giftsRemaining" = greatest(coalesce("giftsRemaining", 0), ${3}),
+          "lifetimeGiftGranted" = true, "updatedAt" = CURRENT_TIMESTAMP
+          where "id" = ${userId}`;
+			giftsRemaining = Math.max(giftsRemaining, 3);
+		} catch {
+			giftsRemaining = Math.max(giftsRemaining, 3);
+		}
+		return {
+			isPro: true,
+			isLifetimePro: true,
+			proPlan: row.proPlan ?? null,
+			proExpiresAt: row.proExpiresAt != null ? String(row.proExpiresAt) : null,
+			proSource: "lifetime",
+			canGift: true,
+			giftsRemaining
+		};
+	}
 	const activeGrant = row.proExpiresAt != null && Date.parse(String(row.proExpiresAt)) > Date.now();
 	return {
-		isPro: Boolean(row.isPro) || isLifetimePro || activeGrant,
-		isLifetimePro,
+		isPro: Boolean(row.isPro) || activeGrant,
+		isLifetimePro: false,
 		proPlan: row.proPlan ?? null,
 		proExpiresAt: row.proExpiresAt != null ? String(row.proExpiresAt) : null,
 		proSource: isProSource(row.proSource) ? row.proSource : null,
-		canGift: Boolean(row.canGift) || allowlisted,
+		canGift: Boolean(row.canGift),
 		giftsRemaining: Number(row.giftsRemaining ?? 0)
 	};
 }
@@ -10569,6 +10591,11 @@ var GIFT_GRANTS = {
 		days: 30,
 		label: "1 month Pro",
 		quotaLine: "1 friend · 1 month Pro · 1 code/year"
+	},
+	lifetime: {
+		days: 30,
+		label: "1 month Pro",
+		quotaLine: "1 month Pro per code"
 	}
 };
 /** Gift codes stay redeemable for 90 days after creation. */
@@ -10612,13 +10639,17 @@ function toInfo(row) {
 	};
 }
 /**
-* The fixed grant a paid subscriber may mint, derived from their own plan:
-* monthly → 7 days, yearly → 30 days. Anything else (gift, lifetime, free)
-* cannot mint at all.
+* The fixed grant a user may mint: paid subscribers get their plan's grant
+* (monthly → 7 days, yearly → 30 days); lifetime accounts grant 30 days.
+* Gift-Pro and free users cannot mint at all.
 */
 async function giftGrantFor(userId) {
 	const plan = await getUserPlan(userId);
 	if (!plan.isPro) throw new GiftProRequiredError();
+	if (plan.isLifetimePro) return {
+		days: GIFT_GRANTS.lifetime.days,
+		plan: "lifetime"
+	};
 	if (plan.proSource !== "subscription") throw new GiftQuotaExhaustedError("Your Pro plan doesn't include gift codes.");
 	if (plan.proPlan === "pro_yearly") return {
 		days: GIFT_GRANTS.pro_yearly.days,
@@ -10638,15 +10669,16 @@ var GiftQuotaExhaustedError = class extends Error {
 };
 /**
 * Create a single-use gift code. Strict rule: the granter must hold a paid
-* subscription (`proSource === "subscription"`) with remaining quota. The
-* grant is fixed by their plan (monthly → 7 days, yearly → 30 days) and one
-* quota unit is consumed. Gift, lifetime, and free users are all rejected —
-* recipients can never mint, so free Pro cannot multiply.
+* subscription or lifetime Pro, with remaining quota. The grant is fixed
+* (monthly → 7 days, yearly/lifetime → 30 days) and one quota unit is
+* consumed. Gift-Pro and free users are rejected — recipients can never
+* mint, so free Pro cannot multiply.
 */
 async function createGiftCode(userId) {
 	const plan = await getUserPlan(userId);
 	if (!plan.isPro) throw new GiftProRequiredError();
-	if (plan.proSource !== "subscription" || !plan.canGift || plan.giftsRemaining < 1) throw new GiftQuotaExhaustedError(plan.proSource !== "subscription" ? "Your Pro plan doesn't include gift codes." : "You've used all your gift codes.");
+	const allowedSource = plan.proSource === "subscription" || plan.isLifetimePro;
+	if (!allowedSource || !plan.canGift || plan.giftsRemaining < 1) throw new GiftQuotaExhaustedError(!allowedSource ? "Your Pro plan doesn't include gift codes." : "You've used all your gift codes.");
 	const grant = await giftGrantFor(userId);
 	const sql = await getSql();
 	const active = await sql`
@@ -10684,14 +10716,24 @@ async function listGiftCodes(userId) {
 function normalizeGiftCode(input) {
 	return input.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
+var GiftRedeemProError = class extends Error {
+	status = 400;
+	constructor() {
+		super("You're already on Pro. Gift codes can only be redeemed by free accounts.");
+		this.name = "GiftRedeemProError";
+	}
+};
 /**
-* Redeem a gift code onto the caller's account: Pro for exactly the code's
-* duration, stacked on any remaining grant. Single-use (atomic claim), never
-* your own code, never expired. May also complete a pending referral reward.
+* Redeem a gift code onto a FREE account: Pro for exactly the code's
+* duration. Already-Pro users are rejected before anything is claimed, so
+* the code stays valid for someone who needs it. Single-use (atomic claim),
+* never your own code, never expired. May also complete a pending referral
+* reward.
 */
 async function redeemGiftCode(userId, input) {
 	const code = normalizeGiftCode(input);
 	if (!code) throw new Error("Enter a gift code.");
+	if ((await getUserPlan(userId)).isPro) throw new GiftRedeemProError();
 	const sql = await getSql();
 	const row = (await sql`
     update "gift_codes"
@@ -10711,10 +10753,9 @@ async function redeemGiftCode(userId, input) {
 		await sql`update "gift_codes" set "redeemedBy" = null, "redeemedAt" = null where "id" = ${row.id}`;
 		throw new Error("You can't redeem your own gift code — it's meant for someone else.");
 	}
-	const alreadyPro = await getUserPlan(userId);
 	const days = row.giftDurationDays ?? row.durationMonths * 30;
 	const proExpiresAt = await grantProDays(userId, days);
-	if (!alreadyPro.isPro) await sql`update "user" set "proSource" = 'gift', "canGift" = false, "giftsRemaining" = 0, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
+	await sql`update "user" set "proSource" = 'gift', "canGift" = false, "giftsRemaining" = 0, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
 	await maybeRewardReferrer(userId);
 	return {
 		durationMonths: row.durationMonths,
@@ -10732,14 +10773,15 @@ var Route$20 = createFileRoute("/api/gift-codes")({ server: { handlers: {
 		try {
 			const userId = await requireRequestUserId();
 			const [codes, plan] = await Promise.all([listGiftCodes(userId), getUserPlan(userId).catch(() => null)]);
-			const grant = plan?.proSource === "subscription" ? GIFT_GRANTS[plan.proPlan === "pro_yearly" ? "pro_yearly" : "pro_monthly"] : null;
+			const grantKey = plan?.isLifetimePro ? "lifetime" : plan?.proSource === "subscription" ? plan.proPlan === "pro_yearly" ? "pro_yearly" : "pro_monthly" : null;
+			const grant = grantKey ? GIFT_GRANTS[grantKey] : null;
 			return Response.json({
 				codes,
 				canGift: plan?.canGift ?? false,
 				giftsRemaining: plan?.giftsRemaining ?? 0,
 				proSource: plan?.proSource ?? null,
 				grantDays: grant?.days ?? null,
-				grantLabel: grant ? plan?.proPlan === "pro_yearly" ? "1 friend · 1 month Pro · 1 code/year" : "1 friend · 7 days Pro · 1 code/month" : null
+				grantLabel: grant ? plan?.isLifetimePro ? "1 friend · 1 month Pro per code" : grant.quotaLine : null
 			});
 		} catch (error) {
 			if (error instanceof UnauthorizedError) return Response.json({ error: "Sign in to manage gift codes." }, { status: 401 });
@@ -11745,16 +11787,16 @@ var Route$18 = createFileRoute("/api/mcp")({ server: { handlers: {
 		});
 	}
 } } });
-var $$splitComponentImporter$4 = () => import("./app-DhNDpA3i.mjs");
+var $$splitComponentImporter$4 = () => import("./app-B3YEcyi_.mjs");
 var Route$17 = createFileRoute("/app/")({
 	validateSearch: (search) => ({ id: typeof search.id === "string" ? search.id : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$4, "component")
 });
-var $$splitComponentImporter$3 = () => import("./clients-DVMFzDkV.mjs");
+var $$splitComponentImporter$3 = () => import("./clients-BYlOQlwa.mjs");
 var Route$16 = createFileRoute("/app/clients")({ component: lazyRouteComponent($$splitComponentImporter$3, "component") });
 var $$splitComponentImporter$2 = () => import("./invoices-0lvuLK3n.mjs");
 var Route$15 = createFileRoute("/app/invoices")({ component: lazyRouteComponent($$splitComponentImporter$2, "component") });
-var $$splitComponentImporter$1 = () => import("./settings-SNGgdxL7.mjs");
+var $$splitComponentImporter$1 = () => import("./settings-DmhjNF2j.mjs");
 var Route$14 = createFileRoute("/app/settings")({
 	validateSearch: (search) => ({ pro: typeof search.pro === "string" ? search.pro : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$1, "component")
@@ -11772,7 +11814,7 @@ var createSsrRpc = (functionId) => {
 	});
 };
 var getPublicInvoice = createServerFn({ method: "GET" }).validator((data) => data).handler(createSsrRpc("7cf99f1f443df70951f16026984e7f7a664d02eb63efa6624ccde1f1d6e46144"));
-var $$splitComponentImporter = () => import("./inv._id-JthWOjZ6.mjs");
+var $$splitComponentImporter = () => import("./inv._id-Cl9XiIqS.mjs");
 var Route$13 = createFileRoute("/inv/$id")({
 	loader: async ({ params }) => {
 		return { invoice: await getPublicInvoice({ data: { id: params.id } }) };

@@ -3,18 +3,18 @@ import { i as formatMoney, n as cn, s as invoiceTotal } from "./utils-DgMi_UEP.m
 import { n as require_react } from "../_libs/@radix-ui/react-compose-refs+[...].mjs";
 import { v as Link, y as useNavigate } from "../_libs/@tanstack/react-router+[...].mjs";
 import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
+import { C as Download, T as Copy, a as Trash2, c as Sparkles, d as Plus, g as Link2, h as LoaderCircle, t as Wallet } from "../_libs/lucide-react.mjs";
+import { n as toast } from "../_libs/sonner.mjs";
+import { a as applySettingsToInvoice, i as Route$17, o as createDraftInvoice, s as emptyLineItem } from "./router-Da7np6yV.mjs";
 import { t as Button } from "./button-CYO0UllO.mjs";
 import { t as Input } from "./input-03uEhuzd.mjs";
 import { t as Label } from "./label-BHyMjyQZ.mjs";
-import { C as Download, T as Copy, a as Trash2, c as Sparkles, d as Plus, g as Link2, h as LoaderCircle, t as Wallet } from "../_libs/lucide-react.mjs";
-import { n as toast } from "../_libs/sonner.mjs";
-import { a as applySettingsToInvoice, i as Route$17, o as createDraftInvoice, s as emptyLineItem } from "./router-DBM2KZ1i.mjs";
 import { n as useStore } from "./context-C9_A_ogf.mjs";
 import { t as Textarea } from "./textarea-Du_npzpQ.mjs";
 import { t as InvoiceDocument } from "./document-lgfe_FuB.mjs";
 import { t as Badge } from "./badge-BViJtkjc.mjs";
 import { n as SwitchThumb, t as Switch$1 } from "../_libs/@radix-ui/react-switch+[...].mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/app-DhNDpA3i.js
+//#region node_modules/.nitro/vite/services/ssr/assets/app-B3YEcyi_.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var Switch = import_react.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Switch$1, {
