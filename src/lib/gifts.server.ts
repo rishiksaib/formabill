@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
 import { maybeRewardReferrer } from "@/lib/referrals.server";
 import {
+  canGiftForSource,
   consumeGiftQuota,
   getUserPlan,
   grantProDays,
@@ -144,13 +145,14 @@ export class GiftQuotaExhaustedError extends Error {
 export async function createGiftCode(userId: string): Promise<GiftCodeInfo> {
   const plan = await getUserPlan(userId);
   if (!plan.isPro) throw new GiftProRequiredError();
-  const allowedSource = plan.proSource === "subscription" || plan.isLifetimePro;
-  if (!allowedSource || !plan.canGift || plan.giftsRemaining < 1) {
-    throw new GiftQuotaExhaustedError(
-      !allowedSource
-        ? "Your Pro plan doesn't include gift codes."
-        : "You've used all your gift codes.",
-    );
+  // Single rule (see canGiftForSource): gift-sourced Pro never mints.
+  // Lifetime is additionally allowed; quota is enforced right after.
+  const mayGift = plan.isLifetimePro || canGiftForSource(plan.proSource, plan.canGift);
+  if (!mayGift) {
+    throw new GiftQuotaExhaustedError("Your Pro plan doesn't include gift codes.");
+  }
+  if (plan.giftsRemaining < 1) {
+    throw new GiftQuotaExhaustedError("You've used all your gift codes.");
   }
   const grant = await giftGrantFor(userId);
   const sql = await getSql();

@@ -3,7 +3,7 @@ import { t as cva } from "../_libs/class-variance-authority+clsx.mjs";
 import { n as cn } from "./utils-DgMi_UEP.mjs";
 import { n as require_react } from "../_libs/@radix-ui/react-compose-refs+[...].mjs";
 import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
-import { r as Slot } from "../_libs/@radix-ui/react-label+[...].mjs";
+import { i as Slot } from "../_libs/@radix-ui/react-label+[...].mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/button-CYO0UllO.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();

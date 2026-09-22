@@ -1264,7 +1264,7 @@ function GiftSection({
         </div>
       ) : (
         <>
-          {isPro && !canGift ? (
+          {proSource === "gift" ? (
         <div className="rounded-lg border border-dashed border-border bg-secondary/40 p-4">
           <p className="text-sm font-medium">Pro (gift) — sharing codes not included</p>
           <p className="mt-1 text-sm text-muted-foreground">

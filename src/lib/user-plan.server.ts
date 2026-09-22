@@ -158,15 +158,34 @@ export async function getUserPlan(userId: string): Promise<UserPlan> {
   }
   const activeGrant =
     row.proExpiresAt != null && Date.parse(String(row.proExpiresAt)) > Date.now();
+  const source = isProSource(row.proSource) ? row.proSource : null;
   return {
     isPro: Boolean(row.isPro) || activeGrant,
     isLifetimePro: false,
     proPlan: row.proPlan ?? null,
     proExpiresAt: row.proExpiresAt != null ? String(row.proExpiresAt) : null,
-    proSource: isProSource(row.proSource) ? row.proSource : null,
-    canGift: Boolean(row.canGift),
+    proSource: source,
+    // Single source of truth for gifting rights (badge, notice, generator,
+    // and API gates all read this): gift source never gifts; paid
+    // subscriptions always can; anything else defers to the stored flag.
+    canGift: canGiftForSource(source, Boolean(row.canGift)),
     giftsRemaining: Number(row.giftsRemaining ?? 0),
   };
+}
+
+/**
+ * The one rule for gifting rights, shared by the plan resolver, gift APIs,
+ * and Settings UI copy: only `gift` is ever excluded. Paid subscriptions
+ * always qualify (quota is enforced separately); lifetime is resolved to its
+ * own branch above before this is consulted.
+ */
+export function canGiftForSource(
+  source: ProSource | null,
+  storedCanGift: boolean,
+): boolean {
+  if (source === "gift") return false;
+  if (source === "subscription") return true;
+  return storedCanGift;
 }
 
 /** True when the founder allowlist covers this user (unlimited gifting). */
