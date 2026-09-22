@@ -160,7 +160,7 @@ Settings → **Pro workspace** offers a real FormaBill subscription checkout wit
 | Monthly | **$11/mo** | `plan: pro_monthly` |
 | Yearly | **$99/yr** | `plan: pro_yearly` |
 
-The buyer picks a plan, **Get Pro** creates a Razorpay **Order** ($11 = 1100 USD cents, $99 = 9900) for that exact amount, and pays in an in-app Razorpay Checkout modal — they never leave `/app/settings`. The server returns only the public Key ID (the secret never reaches the browser). On success the client calls `POST /api/pro/verify` (HMAC-verified server-side for instant activation) and lands on `/app/settings?pro=success`. A verified webhook at `/api/webhooks/razorpay-platform` stays authoritative: it accepts `order.paid` (primary), `payment.captured` (user/plan resolved from the parent order), and legacy `payment_link.paid`, then sets that user’s server-side `isPro` flag — the settings page re-checks status on return. If Checkout.js can’t load, the client falls back to a hosted Payment Link. Pro bypasses the five-invoice monthly limit and unlocks recurring invoices, reminders, and branding removal. The free limit stays enforced for everyone else (the sixth publish in a month returns `402` with the upgrade message).
+The buyer picks a plan, **Get Pro** creates a Razorpay **Order** ($11 = 1100 USD cents, $99 = 9900; the `receipt` is a short `pro_m|pro_y_<8-char-id>_<time>` string, always ≤ 40 chars as Razorpay requires) for that exact amount, and pays in an in-app Razorpay Checkout modal — they never leave `/app/settings`. The server returns only the public Key ID (the secret never reaches the browser). On success the client calls `POST /api/pro/verify` (HMAC-verified server-side for instant activation) and lands on `/app/settings?pro=success`. A verified webhook at `/api/webhooks/razorpay-platform` stays authoritative: it accepts `order.paid` (primary), `payment.captured` (user/plan resolved from the parent order), and legacy `payment_link.paid`, then sets that user’s server-side `isPro` flag — the settings page re-checks status on return. If Checkout.js can’t load, the client falls back to a hosted Payment Link. Pro bypasses the five-invoice monthly limit and unlocks recurring invoices, reminders, and branding removal. The free limit stays enforced for everyone else (the sixth publish in a month returns `402` with the upgrade message).
 
 Pro money is platform revenue: it is paid to FormaBill’s merchant account. Client invoice money is separate — it always goes to the user’s own UPI, PayPal, or Razorpay account, never to us.
 
@@ -195,7 +195,11 @@ Some users are Pro forever without a subscription: a permanent `isLifetimePro` f
   `update "user" set "isLifetimePro" = true where lower("email") = lower('user@example.com');`
 - **Local testing:** the grant script cannot reach the dev server's in-memory database, so use `LIFETIME_PRO_EMAILS="test@example.com" npm run dev` and sign up with that address.
 
-The Settings badge reads “Pro active · Lifetime” for these users.
+The Settings badge reads “Pro active · Lifetime” for these users, the upgrade checkout stays hidden, and no paywall is shown.
+
+**On Vercel (production):** Dashboard → Project → Settings → Environment Variables → add `LIFETIME_PRO_EMAILS` with the exact login email (matching ignores case and surrounding spaces; separate several with commas) → **Save, then redeploy** so the server picks it up. Verify: sign in as that user and open `/api/pro/status` — it must show `"isPro": true, "lifetime": true`. If it shows `false`, the email doesn't match or the deploy predates the variable.
+
+**If Pro checks 500 in production:** the database predates the Pro columns — run `npm run db:migrate` with the production `DATABASE_URL` (see the checklist above). Plan reads degrade gracefully meanwhile (basic Pro + allowlist lifetime keep working), with a server-log warning.
 
 ## AI / MCP (Pro)
 

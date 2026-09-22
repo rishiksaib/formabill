@@ -3,15 +3,15 @@ import { f as uid } from "./utils-DgMi_UEP.mjs";
 import { n as require_react } from "../_libs/@radix-ui/react-compose-refs+[...].mjs";
 import { v as Link, y as useNavigate } from "../_libs/@tanstack/react-router+[...].mjs";
 import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
-import { T as Copy, a as Trash2, d as Plus, f as Pencil, n as Users, u as Search, y as FilePlus2 } from "../_libs/lucide-react.mjs";
-import { n as toast } from "../_libs/sonner.mjs";
-import { a as applySettingsToInvoice, o as createDraftInvoice } from "./router-C0U3mc95.mjs";
 import { t as Button } from "./button-CYO0UllO.mjs";
 import { t as Input } from "./input-03uEhuzd.mjs";
 import { t as Label } from "./label-BHyMjyQZ.mjs";
+import { T as Copy, a as Trash2, d as Plus, f as Pencil, n as Users, u as Search, y as FilePlus2 } from "../_libs/lucide-react.mjs";
+import { n as toast } from "../_libs/sonner.mjs";
+import { a as applySettingsToInvoice, o as createDraftInvoice } from "./router-DBM2KZ1i.mjs";
 import { n as useStore } from "./context-C9_A_ogf.mjs";
 import { t as Textarea } from "./textarea-Du_npzpQ.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/clients-CziVwruH.js
+//#region node_modules/.nitro/vite/services/ssr/assets/clients-DVMFzDkV.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function initials(name, email) {

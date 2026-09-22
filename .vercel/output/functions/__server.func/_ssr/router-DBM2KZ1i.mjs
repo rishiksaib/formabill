@@ -39,7 +39,7 @@ var DEFAULT_SETTINGS = {
 	}
 };
 //#endregion
-//#region node_modules/.nitro/vite/services/ssr/assets/router-C0U3mc95.js
+//#region node_modules/.nitro/vite/services/ssr/assets/router-DBM2KZ1i.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 /**
@@ -490,23 +490,23 @@ var Route$30 = createRootRoute({
 });
 var $$splitComponentImporter$11 = () => import("./routes-DNV8i2Vl.mjs");
 var Route$29 = createFileRoute("/")({ component: lazyRouteComponent($$splitComponentImporter$11, "component") });
-var $$splitComponentImporter$10 = () => import("./app-CnhKhJ0H.mjs");
+var $$splitComponentImporter$10 = () => import("./app-CNCjhQVJ.mjs");
 var Route$28 = createFileRoute("/app")({
 	ssr: false,
 	component: lazyRouteComponent($$splitComponentImporter$10, "component")
 });
-var $$splitComponentImporter$9 = () => import("./forgot-password-B98Dms9V.mjs");
+var $$splitComponentImporter$9 = () => import("./forgot-password-BuUuutfe.mjs");
 var Route$27 = createFileRoute("/forgot-password")({ component: lazyRouteComponent($$splitComponentImporter$9, "component") });
-var $$splitComponentImporter$8 = () => import("./login-DI4QSNm-.mjs");
+var $$splitComponentImporter$8 = () => import("./login-BUAvY7IU.mjs");
 var Route$26 = createFileRoute("/login")({ component: lazyRouteComponent($$splitComponentImporter$8, "component") });
-var $$splitComponentImporter$7 = () => import("./privacy--p5FlirZ.mjs");
+var $$splitComponentImporter$7 = () => import("./privacy-C4HLiLz-.mjs");
 var Route$25 = createFileRoute("/privacy")({ component: lazyRouteComponent($$splitComponentImporter$7, "component") });
-var $$splitComponentImporter$6 = () => import("./reset-password-CfGXBkmt.mjs");
+var $$splitComponentImporter$6 = () => import("./reset-password-DTYCEYIu.mjs");
 var Route$24 = createFileRoute("/reset-password")({
 	validateSearch: (search) => ({ token: typeof search.token === "string" ? search.token : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$6, "component")
 });
-var $$splitComponentImporter$5 = () => import("./terms-C7t0xyFn.mjs");
+var $$splitComponentImporter$5 = () => import("./terms-CqV3AA9y.mjs");
 var Route$23 = createFileRoute("/terms")({ component: lazyRouteComponent($$splitComponentImporter$5, "component") });
 var SUPPORT_EMAIL = "support@formabill.app";
 function env$2(key) {
@@ -10010,7 +10010,7 @@ var auth = betterAuth({
 		enabled: true,
 		resetPasswordTokenExpiresIn: 3600,
 		sendResetPassword: async ({ user, url }) => {
-			const { sendPasswordResetEmail } = await import("./mailer.server-C13Nr0bZ.mjs");
+			const { sendPasswordResetEmail } = await import("./mailer.server-BeihgS-j.mjs");
 			await sendPasswordResetEmail(user.email, url);
 		}
 	},
@@ -10373,12 +10373,39 @@ function isProSource(value) {
 * column or a `LIFETIME_PRO_EMAILS` entry means Pro forever — limits bypassed,
 * Pro badge, MCP unlock — with no expiry and no webhook needed.
 */
+/** True for "column does not exist" (partial migrations) — never for missing tables. */
+function isMissingColumnError(error) {
+	if (!error || typeof error !== "object") return false;
+	if (error.code === "42703") return true;
+	const message = error instanceof Error ? error.message : String(error);
+	return /column .* does not exist/i.test(message);
+}
 async function getUserPlan(userId) {
-	const row = (await (await getSql())`
-    select "id", "email", "isPro", "isLifetimePro", "proPlan", "proExpiresAt",
-      "proSource", "canGift", "giftsRemaining"
-    from "user" where "id" = ${userId} limit 1
-  `)[0];
+	const sql = await getSql();
+	let rows;
+	try {
+		rows = await sql`
+      select "id", "email", "isPro", "isLifetimePro", "proPlan", "proExpiresAt",
+        "proSource", "canGift", "giftsRemaining"
+      from "user" where "id" = ${userId} limit 1
+    `;
+	} catch (error) {
+		if (!isMissingColumnError(error)) throw error;
+		console.warn("[pro] user table is missing Pro columns — run `npm run db:migrate` against DATABASE_URL. Serving degraded plan data meanwhile.");
+		const fallback = (await sql`
+      select "id", "email", "isPro" from "user" where "id" = ${userId} limit 1
+    `)[0];
+		rows = fallback ? [{
+			...fallback,
+			isLifetimePro: false,
+			proPlan: null,
+			proExpiresAt: null,
+			proSource: null,
+			canGift: false,
+			giftsRemaining: 0
+		}] : [];
+	}
+	const row = rows[0];
 	if (!row) return {
 		isPro: false,
 		isLifetimePro: false,
@@ -11718,16 +11745,16 @@ var Route$18 = createFileRoute("/api/mcp")({ server: { handlers: {
 		});
 	}
 } } });
-var $$splitComponentImporter$4 = () => import("./app-BIzxV8FU.mjs");
+var $$splitComponentImporter$4 = () => import("./app-DhNDpA3i.mjs");
 var Route$17 = createFileRoute("/app/")({
 	validateSearch: (search) => ({ id: typeof search.id === "string" ? search.id : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$4, "component")
 });
-var $$splitComponentImporter$3 = () => import("./clients-CziVwruH.mjs");
+var $$splitComponentImporter$3 = () => import("./clients-DVMFzDkV.mjs");
 var Route$16 = createFileRoute("/app/clients")({ component: lazyRouteComponent($$splitComponentImporter$3, "component") });
 var $$splitComponentImporter$2 = () => import("./invoices-0lvuLK3n.mjs");
 var Route$15 = createFileRoute("/app/invoices")({ component: lazyRouteComponent($$splitComponentImporter$2, "component") });
-var $$splitComponentImporter$1 = () => import("./settings-DijeSuwH.mjs");
+var $$splitComponentImporter$1 = () => import("./settings-SNGgdxL7.mjs");
 var Route$14 = createFileRoute("/app/settings")({
 	validateSearch: (search) => ({ pro: typeof search.pro === "string" ? search.pro : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$1, "component")
@@ -11745,7 +11772,7 @@ var createSsrRpc = (functionId) => {
 	});
 };
 var getPublicInvoice = createServerFn({ method: "GET" }).validator((data) => data).handler(createSsrRpc("7cf99f1f443df70951f16026984e7f7a664d02eb63efa6624ccde1f1d6e46144"));
-var $$splitComponentImporter = () => import("./inv._id-cQBxwTjB.mjs");
+var $$splitComponentImporter = () => import("./inv._id-JthWOjZ6.mjs");
 var Route$13 = createFileRoute("/inv/$id")({
 	loader: async ({ params }) => {
 		return { invoice: await getPublicInvoice({ data: { id: params.id } }) };
@@ -11878,9 +11905,15 @@ function platformBillingConfigured() {
 /**
 * Amounts are USD cents (1100 = $11.00, 9900 = $99.00) — Razorpay's smallest
 * unit for USD, mirroring paise for INR. Receipts tie the order to the buyer.
+*
+* Razorpay rejects receipts longer than 40 chars, so this stays short by
+* construction (`pro_m_<8-char-id>_<time36>` ≈ 23 chars): no emails, no full
+* UUIDs, no long plan names. Clamped defensively — never sent over 40.
 */
 function proReceipt(userId, plan) {
-	return `fb-pro-${plan}-${userId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "user"}-${Date.now().toString(36)}`.slice(0, 64);
+	const receipt = `${plan === "pro_yearly" ? "pro_y" : "pro_m"}_${userId.replace(/[^A-Za-z0-9]/g, "").slice(0, 8) || "user"}_${Date.now().toString(36)}`;
+	if (receipt.length > 40) return receipt.slice(0, 40);
+	return receipt;
 }
 function platformAuthHeader() {
 	const credentials = platformCredentials();

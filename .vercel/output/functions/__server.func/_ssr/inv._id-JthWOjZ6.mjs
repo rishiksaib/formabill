@@ -3,13 +3,13 @@ import { i as formatMoney, s as invoiceTotal } from "./utils-DgMi_UEP.mjs";
 import { n as require_react } from "../_libs/@radix-ui/react-compose-refs+[...].mjs";
 import { v as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
+import { t as Logo } from "./logo-ut0NUiCj.mjs";
+import { t as Button } from "./button-CYO0UllO.mjs";
 import { C as Download, M as ArrowUpRight, T as Copy, g as Link2, h as LoaderCircle, v as FileQuestion } from "../_libs/lucide-react.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
-import { n as Route$13 } from "./router-C0U3mc95.mjs";
-import { t as Button } from "./button-CYO0UllO.mjs";
+import { n as Route$13 } from "./router-DBM2KZ1i.mjs";
 import { t as InvoiceDocument } from "./document-lgfe_FuB.mjs";
-import { t as Logo } from "./logo-ut0NUiCj.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/inv._id-cQBxwTjB.js
+//#region node_modules/.nitro/vite/services/ssr/assets/inv._id-JthWOjZ6.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function PublicInvoicePage() {

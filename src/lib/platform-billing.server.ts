@@ -47,10 +47,22 @@ export function platformBillingConfigured(): boolean {
 /**
  * Amounts are USD cents (1100 = $11.00, 9900 = $99.00) — Razorpay's smallest
  * unit for USD, mirroring paise for INR. Receipts tie the order to the buyer.
+ *
+ * Razorpay rejects receipts longer than 40 chars, so this stays short by
+ * construction (`pro_m_<8-char-id>_<time36>` ≈ 23 chars): no emails, no full
+ * UUIDs, no long plan names. Clamped defensively — never sent over 40.
  */
-function proReceipt(userId: string, plan: ProPlan): string {
-  const safe = userId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "user";
-  return `fb-pro-${plan}-${safe}-${Date.now().toString(36)}`.slice(0, 64);
+export function proReceipt(userId: string, plan: ProPlan): string {
+  const tag = plan === "pro_yearly" ? "pro_y" : "pro_m";
+  const shortId = userId.replace(/[^A-Za-z0-9]/g, "").slice(0, 8) || "user";
+  const receipt = `${tag}_${shortId}_${Date.now().toString(36)}`;
+  if (receipt.length > 40) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[pro] receipt clamped: ${receipt.length} chars`);
+    }
+    return receipt.slice(0, 40);
+  }
+  return receipt;
 }
 
 function platformAuthHeader(): {

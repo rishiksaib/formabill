@@ -66,13 +66,51 @@ function isProSource(value: unknown): value is ProSource {
  * column or a `LIFETIME_PRO_EMAILS` entry means Pro forever — limits bypassed,
  * Pro badge, MCP unlock — with no expiry and no webhook needed.
  */
+/** True for "column does not exist" (partial migrations) — never for missing tables. */
+function isMissingColumnError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  if (code === "42703") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /column .* does not exist/i.test(message);
+}
+
 export async function getUserPlan(userId: string): Promise<UserPlan> {
   const sql = await getSql();
-  const rows = await sql<UserPlanRow>`
-    select "id", "email", "isPro", "isLifetimePro", "proPlan", "proExpiresAt",
-      "proSource", "canGift", "giftsRemaining"
-    from "user" where "id" = ${userId} limit 1
-  `;
+  let rows: UserPlanRow[];
+  try {
+    rows = await sql<UserPlanRow>`
+      select "id", "email", "isPro", "isLifetimePro", "proPlan", "proExpiresAt",
+        "proSource", "canGift", "giftsRemaining"
+      from "user" where "id" = ${userId} limit 1
+    `;
+  } catch (error) {
+    // Production databases migrated before the Pro columns existed would 500
+    // every Pro read (limits, MCP, status). Fall back to the original three
+    // columns so basic Pro + env-allowlist lifetime keep working, and say so
+    // loudly in the server logs so the real fix (run migrations) happens.
+    if (!isMissingColumnError(error)) throw error;
+    console.warn(
+      "[pro] user table is missing Pro columns — run `npm run db:migrate` against DATABASE_URL. Serving degraded plan data meanwhile.",
+    );
+    const minimal = await sql<{ id: string; email: string; isPro: boolean }>`
+      select "id", "email", "isPro" from "user" where "id" = ${userId} limit 1
+    `;
+    const fallback = minimal[0];
+    rows = fallback
+      ? [
+          {
+            ...fallback,
+            isLifetimePro: false,
+            proPlan: null,
+            proExpiresAt: null,
+            proSource: null,
+            canGift: false,
+            giftsRemaining: 0,
+          },
+        ]
+      : [];
+  }
   const row = rows[0];
   if (!row) {
     return {
