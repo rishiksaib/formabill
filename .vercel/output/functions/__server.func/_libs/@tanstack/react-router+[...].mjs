@@ -2,7 +2,7 @@ import { i as __require, o as __toESM, t as __commonJSMin } from "../../_runtime
 import { n as require_react } from "../@radix-ui/react-compose-refs+[...].mjs";
 import { r as parseHref } from "../tanstack__history.mjs";
 import { n as require_jsx_runtime } from "../radix-ui__react-context+react.mjs";
-import { r as require_react_dom } from "../@radix-ui/react-label+[...].mjs";
+import { i as require_react_dom } from "../@radix-ui/react-label+[...].mjs";
 import { PassThrough, Readable } from "node:stream";
 import { ReadableStream as ReadableStream$1 } from "node:stream/web";
 //#region node_modules/@tanstack/router-core/dist/esm/not-found.js

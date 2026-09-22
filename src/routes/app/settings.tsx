@@ -1228,22 +1228,8 @@ function GiftSection({
     <SectionCard
       kicker="Gift codes"
       title="Give Pro to a friend"
-      blurb="Paid subscribers get one gift code per billing period. Redeeming unlocks Pro for a fixed stretch — never more gifting rights."
+      blurb="Paid subscribers get one code per billing period; lifetime accounts draw from a pool of 3. Redeeming unlocks Pro for a fixed stretch — never more gifting rights."
     >
-      {signedIn && (
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <Input
-            value={redeemCode}
-            onChange={(e) => onRedeemCodeChange(e.target.value)}
-            placeholder="Have a code? Paste it here, e.g. PRO-XXXX-XXXX"
-            aria-label="Gift code to redeem"
-            className="font-mono uppercase"
-          />
-          <Button type="button" disabled={redeemBusy} onClick={onRedeem}>
-            {redeemBusy ? "Redeeming…" : "Redeem"}
-          </Button>
-        </div>
-      )}
       {!signedIn ? (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border p-4">
           <p className="text-sm text-muted-foreground">Sign in to redeem or create gift codes.</p>
@@ -1252,34 +1238,61 @@ function GiftSection({
           </Button>
         </div>
       ) : !isPro ? (
-        <div className="mt-4 rounded-lg border border-dashed border-border bg-secondary/40 p-4">
-          <p className="text-sm font-medium">Creating codes is a Pro feature</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Paid subscribers get one gift code per billing period — 7 days of Pro on monthly, a
-            full month on yearly.
-          </p>
-          <Button type="button" className="mt-3" asChild>
-            <a href="#pro">See Pro plans</a>
-          </Button>
-        </div>
+        <>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <Input
+              value={redeemCode}
+              onChange={(e) => onRedeemCodeChange(e.target.value)}
+              placeholder="Have a code? Paste it here, e.g. PRO-XXXX-XXXX"
+              aria-label="Gift code to redeem"
+              className="font-mono uppercase"
+            />
+            <Button type="button" disabled={redeemBusy} onClick={onRedeem}>
+              {redeemBusy ? "Redeeming…" : "Redeem"}
+            </Button>
+          </div>
+          <div className="mt-4 rounded-lg border border-dashed border-border bg-secondary/40 p-4">
+            <p className="text-sm font-medium">Creating codes is a Pro feature</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Paid subscribers get one gift code per billing period — 7 days of Pro on monthly, a
+              full month on yearly.
+            </p>
+            <Button type="button" className="mt-3" asChild>
+              <a href="#pro">See Pro plans</a>
+            </Button>
+          </div>
+        </>
       ) : (
         <>
           {proSource === "gift" ? (
-        <div className="rounded-lg border border-dashed border-border bg-secondary/40 p-4">
-          <p className="text-sm font-medium">Pro (gift) — sharing codes not included</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Gifted Pro unlocks everything for you, but only paid subscribers can create new gift
-            codes.
-          </p>
-        </div>
-      ) : null}
-      {isPro && canGift ? (
-        <p className="text-sm text-muted-foreground">
-          {giftsRemaining} gift code{giftsRemaining === 1 ? "" : "s"} left
-          {proSource === "subscription" ? " — refills with each Pro payment" : ""}.
-        </p>
-      ) : null}
-      {fresh ? (
+            <div className="rounded-lg border border-dashed border-border bg-secondary/40 p-4">
+              <p className="text-sm font-medium">Pro (gift) — sharing codes not included</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Gifted Pro unlocks everything for you, but only paid subscribers can create new gift
+                codes.
+              </p>
+            </div>
+          ) : null}
+          {canGift ? (
+            <>
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{grantLabel ?? "1 gift code"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Single-use · expires in 90 days · {giftsRemaining} left
+                    {proSource === "subscription" ? " · refills with each Pro payment" : ""}
+                  </p>
+                </div>
+                <Button type="button" disabled={busy} onClick={onGenerate}>
+                  {busy ? "Creating…" : "Create gift code"}
+                </Button>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                You&apos;re already on Pro. Gift codes are for free accounts.
+              </p>
+            </>
+          ) : null}
+          {fresh ? (
             <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
               <p className="text-sm font-medium text-emerald-900">
                 Share this code — it works once and expires in 90 days
@@ -1295,19 +1308,6 @@ function GiftSection({
                   Done
                 </Button>
               </div>
-            </div>
-          ) : null}
-          {canGift ? (
-            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{grantLabel ?? "1 gift code"}</p>
-                <p className="text-xs text-muted-foreground">
-                  Single-use · expires in 90 days · {giftsRemaining} left
-                </p>
-              </div>
-              <Button type="button" disabled={busy} onClick={onGenerate}>
-                {busy ? "Creating…" : "Generate code"}
-              </Button>
             </div>
           ) : null}
           {codes.length > 0 ? (
@@ -1352,7 +1352,7 @@ function GiftSection({
             </ul>
           ) : canGift ? (
             <p className="mt-4 text-sm text-muted-foreground">
-              No codes yet. Pick a duration and generate your first gift.
+              No codes yet. Create your first gift above.
             </p>
           ) : null}
         </>
