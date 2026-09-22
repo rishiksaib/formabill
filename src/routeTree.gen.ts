@@ -31,6 +31,7 @@ import { Route as ApiGiftCodesRedeemRouteImport } from './routes/api/gift-codes/
 import { Route as ApiInvoicesIdRouteImport } from './routes/api/invoices.$id'
 import { Route as ApiMcpTokensRouteImport } from './routes/api/mcp/tokens'
 import { Route as ApiProCheckoutRouteImport } from './routes/api/pro/checkout'
+import { Route as ApiProDebugRouteImport } from './routes/api/pro/debug'
 import { Route as ApiProStatusRouteImport } from './routes/api/pro/status'
 import { Route as ApiProVerifyRouteImport } from './routes/api/pro/verify'
 import { Route as ApiRecurringProcessRouteImport } from './routes/api/recurring/process'
@@ -150,6 +151,11 @@ const ApiProCheckoutRoute = ApiProCheckoutRouteImport.update({
   path: '/api/pro/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProDebugRoute = ApiProDebugRouteImport.update({
+  id: '/api/pro/debug',
+  path: '/api/pro/debug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiProStatusRoute = ApiProStatusRouteImport.update({
   id: '/api/pro/status',
   path: '/api/pro/status',
@@ -215,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/api/invoices/$id': typeof ApiInvoicesIdRoute
   '/api/mcp/tokens': typeof ApiMcpTokensRouteWithChildren
   '/api/pro/checkout': typeof ApiProCheckoutRoute
+  '/api/pro/debug': typeof ApiProDebugRoute
   '/api/pro/status': typeof ApiProStatusRoute
   '/api/pro/verify': typeof ApiProVerifyRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
@@ -246,6 +253,7 @@ export interface FileRoutesByTo {
   '/api/invoices/$id': typeof ApiInvoicesIdRoute
   '/api/mcp/tokens': typeof ApiMcpTokensRouteWithChildren
   '/api/pro/checkout': typeof ApiProCheckoutRoute
+  '/api/pro/debug': typeof ApiProDebugRoute
   '/api/pro/status': typeof ApiProStatusRoute
   '/api/pro/verify': typeof ApiProVerifyRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
@@ -279,6 +287,7 @@ export interface FileRoutesById {
   '/api/invoices/$id': typeof ApiInvoicesIdRoute
   '/api/mcp/tokens': typeof ApiMcpTokensRouteWithChildren
   '/api/pro/checkout': typeof ApiProCheckoutRoute
+  '/api/pro/debug': typeof ApiProDebugRoute
   '/api/pro/status': typeof ApiProStatusRoute
   '/api/pro/verify': typeof ApiProVerifyRoute
   '/api/recurring/process': typeof ApiRecurringProcessRoute
@@ -313,6 +322,7 @@ export interface FileRouteTypes {
     | '/api/invoices/$id'
     | '/api/mcp/tokens'
     | '/api/pro/checkout'
+    | '/api/pro/debug'
     | '/api/pro/status'
     | '/api/pro/verify'
     | '/api/recurring/process'
@@ -344,6 +354,7 @@ export interface FileRouteTypes {
     | '/api/invoices/$id'
     | '/api/mcp/tokens'
     | '/api/pro/checkout'
+    | '/api/pro/debug'
     | '/api/pro/status'
     | '/api/pro/verify'
     | '/api/recurring/process'
@@ -376,6 +387,7 @@ export interface FileRouteTypes {
     | '/api/invoices/$id'
     | '/api/mcp/tokens'
     | '/api/pro/checkout'
+    | '/api/pro/debug'
     | '/api/pro/status'
     | '/api/pro/verify'
     | '/api/recurring/process'
@@ -402,6 +414,7 @@ export interface RootRouteChildren {
   InvIdRoute: typeof InvIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiProCheckoutRoute: typeof ApiProCheckoutRoute
+  ApiProDebugRoute: typeof ApiProDebugRoute
   ApiProStatusRoute: typeof ApiProStatusRoute
   ApiProVerifyRoute: typeof ApiProVerifyRoute
   ApiRecurringProcessRoute: typeof ApiRecurringProcessRoute
@@ -567,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProCheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pro/debug': {
+      id: '/api/pro/debug'
+      path: '/api/pro/debug'
+      fullPath: '/api/pro/debug'
+      preLoaderRoute: typeof ApiProDebugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/pro/status': {
       id: '/api/pro/status'
       path: '/api/pro/status'
@@ -705,6 +725,7 @@ const rootRouteChildren: RootRouteChildren = {
   InvIdRoute: InvIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiProCheckoutRoute: ApiProCheckoutRoute,
+  ApiProDebugRoute: ApiProDebugRoute,
   ApiProStatusRoute: ApiProStatusRoute,
   ApiProVerifyRoute: ApiProVerifyRoute,
   ApiRecurringProcessRoute: ApiRecurringProcessRoute,

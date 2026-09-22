@@ -42,6 +42,7 @@ function SettingsPage() {
   const [giftRemaining, setGiftRemaining] = useState(0);
   const [giftProSource, setGiftProSource] = useState<string | null>(null);
   const [giftGrantLabel, setGiftGrantLabel] = useState<string | null>(null);
+  const [giftLoadError, setGiftLoadError] = useState<string | null>(null);
   const [giftFresh, setGiftFresh] = useState<string | null>(null);
   const [giftBusy, setGiftBusy] = useState(false);
   const [redeemCode, setRedeemCode] = useState("");
@@ -107,7 +108,11 @@ function SettingsPage() {
   const loadGiftCodes = async () => {
     try {
       const response = await fetch("/api/gift-codes");
-      if (!response.ok) return;
+      if (response.status === 401) return;
+      if (!response.ok) {
+        const json = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(json.error || `Gift service answered ${response.status}`);
+      }
       const json = (await response.json()) as {
         codes?: GiftCodeInfo[];
         canGift?: boolean;
@@ -120,8 +125,11 @@ function SettingsPage() {
       setGiftRemaining(Number(json.giftsRemaining ?? 0));
       setGiftProSource(json.proSource ?? null);
       setGiftGrantLabel(json.grantLabel ?? null);
-    } catch {
-      /* gift list is best-effort */
+      setGiftLoadError(null);
+    } catch (error) {
+      // Loud on purpose: a silent gift section once hid a broken backend
+      // (missing table / stale deploy) behind an empty-looking UI.
+      setGiftLoadError(error instanceof Error ? error.message : "Could not load gift codes");
     }
   };
 
@@ -740,6 +748,7 @@ function SettingsPage() {
         giftsRemaining={giftRemaining}
         proSource={giftProSource}
         grantLabel={giftGrantLabel}
+        loadError={giftLoadError}
         fresh={giftFresh}
         onDismissFresh={() => setGiftFresh(null)}
         busy={giftBusy}
@@ -1197,6 +1206,7 @@ function GiftSection({
   giftsRemaining,
   proSource,
   grantLabel,
+  loadError,
   fresh,
   onDismissFresh,
   busy,
@@ -1214,6 +1224,7 @@ function GiftSection({
   giftsRemaining: number;
   proSource: string | null;
   grantLabel: string | null;
+  loadError: string | null;
   fresh: string | null;
   onDismissFresh: () => void;
   busy: boolean;
@@ -1230,6 +1241,11 @@ function GiftSection({
       title="Give Pro to a friend"
       blurb="Paid subscribers get one code per billing period; lifetime accounts draw from a pool of 3. Redeeming unlocks Pro for a fixed stretch — never more gifting rights."
     >
+      {loadError ? (
+        <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+          Gift service error: {loadError}
+        </p>
+      ) : null}
       {!signedIn ? (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border p-4">
           <p className="text-sm text-muted-foreground">Sign in to redeem or create gift codes.</p>

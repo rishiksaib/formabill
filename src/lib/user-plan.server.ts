@@ -35,14 +35,23 @@ export const PRO_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
  * `LIFETIME_PRO_EMAILS="founder@example.com,tester@example.com"`.
  * Anyone listed is treated as lifetime Pro on every backend.
  */
-function lifetimeAllowlist(): Set<string> {
-  const raw = process.env.LIFETIME_PRO_EMAILS ?? "";
+export function parseLifetimeAllowlist(raw: string | undefined): Set<string> {
   return new Set(
-    raw
+    (raw ?? "")
       .split(/[,\s]+/)
-      .map((entry) => entry.trim().toLowerCase())
+      .map((entry) =>
+        // Tolerate dashboard pastes with surrounding quotes.
+        entry
+          .trim()
+          .replace(/^["']+|["']+$/g, "")
+          .toLowerCase(),
+      )
       .filter(Boolean),
   );
+}
+
+function lifetimeAllowlist(): Set<string> {
+  return parseLifetimeAllowlist(process.env.LIFETIME_PRO_EMAILS);
 }
 
 type UserPlanRow = {
@@ -201,6 +210,57 @@ export async function isAllowlistedFounder(userId: string): Promise<boolean> {
 /** Effective Pro check used by limits, MCP auth, and status endpoints. */
 export async function isProUser(userId: string): Promise<boolean> {
   return (await getUserPlan(userId)).isPro;
+}
+
+export type ProDebugInfo = {
+  email: string | null;
+  rowFound: boolean;
+  rowIsLifetimePro: boolean | null;
+  rowProSource: string | null;
+  rowCanGift: boolean | null;
+  rowGiftsRemaining: number | null;
+  allowlisted: boolean;
+  plan: UserPlan;
+};
+
+/**
+ * Self-diagnostics for one signed-in user (powers `GET /api/pro/debug`).
+ * Shows the raw row next to the computed plan so a glance reveals whether a
+ * broken gift UI is a data problem (flags/row) or an env problem
+ * (`allowlisted: false` while listed). Never exposes other users or the
+ * allowlist contents.
+ */
+export async function getProDebugInfo(userId: string): Promise<ProDebugInfo> {
+  const sql = await getSql();
+  let raw: {
+    email?: unknown;
+    isLifetimePro?: unknown;
+    proSource?: unknown;
+    canGift?: unknown;
+    giftsRemaining?: unknown;
+  } | null = null;
+  try {
+    const rows = await sql<Record<string, unknown>>`
+      select "email", "isLifetimePro", "proSource", "canGift", "giftsRemaining"
+      from "user" where "id" = ${userId} limit 1
+    `;
+    raw = rows[0] ?? null;
+  } catch {
+    raw = null;
+  }
+  const email = typeof raw?.email === "string" ? raw.email : null;
+  const plan = await getUserPlan(userId);
+  return {
+    email,
+    rowFound: raw !== null,
+    rowIsLifetimePro: typeof raw?.isLifetimePro === "boolean" ? raw.isLifetimePro : null,
+    rowProSource: typeof raw?.proSource === "string" ? raw.proSource : null,
+    rowCanGift: typeof raw?.canGift === "boolean" ? raw.canGift : null,
+    rowGiftsRemaining: typeof raw?.giftsRemaining === "number" ? raw.giftsRemaining : null,
+    allowlisted:
+      email !== null && parseLifetimeAllowlist(process.env.LIFETIME_PRO_EMAILS).has(email.toLowerCase()),
+    plan,
+  };
 }
 
 export async function setUserPro(userId: string, isPro: boolean): Promise<void> {

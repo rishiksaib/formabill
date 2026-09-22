@@ -188,7 +188,7 @@ These platform credentials are for FormaBill’s merchant account. They must nev
 Some users are Pro forever without a subscription: a permanent `isLifetimePro` flag on the user row, or a server-only email allowlist. Lifetime is resolved first and can never come back as `gift` — stale gift-sourced lifetime rows self-repair on next status load. Lifetime users bypass invoice limits, see the Pro badge, can use MCP, and may mint 30-day gift codes from a one-time pool of 3. No email is hardcoded anywhere in the frontend.
 
 - **Automatic (recommended for the founder):** set the server env var before starting the app —
-  `LIFETIME_PRO_EMAILS="rishiksaibandari@gmail.com"` (comma-separated for several). Anyone listed is lifetime Pro on every backend, including local dev.
+  `LIFETIME_PRO_EMAILS="rishiksaibandari@gmail.com"` (comma-separated for several). Matching trims spaces, drops surrounding quotes, and ignores case — but the address itself must be right, so paste it without quotes in dashboards. Anyone listed is lifetime Pro on every backend, including local dev. On first status load their row self-repairs to `proSource: lifetime` with a one-time founder pool of **3** gift codes (spent quota is never refilled by reads).
 - **Manual flag (production database):** first have the person sign up (so the user row exists), then run —
   `npm run grant:lifetime-pro -- user@example.com`
   (needs `DATABASE_URL`; revoke with `--revoke`). Raw SQL equivalent:
@@ -196,6 +196,8 @@ Some users are Pro forever without a subscription: a permanent `isLifetimePro` f
 - **Local testing:** the grant script cannot reach the dev server's in-memory database, so use `LIFETIME_PRO_EMAILS="test@example.com" npm run dev` and sign up with that address.
 
 The Settings badge reads “Pro active · Lifetime” for these users, the upgrade checkout stays hidden, and no paywall is shown.
+
+**Diagnosing lifetime issues:** sign in as the user and open `/api/pro/debug` — it shows the raw row (`rowIsLifetimePro`, `rowProSource`, `rowCanGift`, `rowGiftsRemaining`) next to the computed plan plus `allowlisted` (whether the env matched, without revealing the list). `allowlisted: false` means the env value is missing/misspelled — paste it without quotes — or the deploy predates it (redeploy). A gift-load failure now also surfaces inline in Settings instead of failing silently.
 
 **On Vercel (production):** Dashboard → Project → Settings → Environment Variables → add `LIFETIME_PRO_EMAILS` with the exact login email (matching ignores case and surrounding spaces; separate several with commas) → **Save, then redeploy** so the server picks it up. Verify: sign in as that user and open `/api/pro/status` — it must show `"isPro": true, "lifetime": true`. If it shows `false`, the email doesn't match or the deploy predates the variable.
 
