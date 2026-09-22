@@ -9,8 +9,8 @@ import { t as Input } from "./input-03uEhuzd.mjs";
 import { t as Label } from "./label-BHyMjyQZ.mjs";
 import { t as StoreProvider } from "./context-C9_A_ogf.mjs";
 import { t as Logo } from "./logo-ut0NUiCj.mjs";
-import { t as useCurrentUserState } from "./use-current-user-DTorNRYs.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/app-pCy6yFnJ.js
+import { t as useCurrentUserState } from "./use-current-user-DfN2vssX.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/app-MItOgzbk.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var WAITLIST_KEY = "formabill-waitlist-email";

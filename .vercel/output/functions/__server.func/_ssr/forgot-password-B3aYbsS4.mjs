@@ -7,8 +7,8 @@ import { n as toast } from "../_libs/sonner.mjs";
 import { t as Button } from "./button-CYO0UllO.mjs";
 import { t as Input } from "./input-03uEhuzd.mjs";
 import { t as Label } from "./label-BHyMjyQZ.mjs";
-import { t as authClient } from "./client-Cf7gmKsE.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/forgot-password-CPpuaopM.js
+import { t as authClient } from "./client-CL5bX-pj.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/forgot-password-B3aYbsS4.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function ForgotPasswordPage() {

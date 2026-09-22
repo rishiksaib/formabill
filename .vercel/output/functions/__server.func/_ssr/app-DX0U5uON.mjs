@@ -5,7 +5,7 @@ import { v as Link, y as useNavigate } from "../_libs/@tanstack/react-router+[..
 import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
 import { C as Download, T as Copy, a as Trash2, c as Sparkles, d as Plus, g as Link2, h as LoaderCircle, t as Wallet } from "../_libs/lucide-react.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
-import { a as applySettingsToInvoice, i as Route$18, o as createDraftInvoice, s as emptyLineItem } from "./router-Bmc9EuDx.mjs";
+import { a as applySettingsToInvoice, i as Route$18, o as createDraftInvoice, s as emptyLineItem } from "./router-BozvWNW5.mjs";
 import { t as Button } from "./button-CYO0UllO.mjs";
 import { t as Input } from "./input-03uEhuzd.mjs";
 import { t as Label } from "./label-BHyMjyQZ.mjs";
@@ -14,7 +14,7 @@ import { t as Textarea } from "./textarea-Du_npzpQ.mjs";
 import { t as InvoiceDocument } from "./document-lgfe_FuB.mjs";
 import { t as Badge } from "./badge-BViJtkjc.mjs";
 import { n as SwitchThumb, t as Switch$1 } from "../_libs/@radix-ui/react-switch+[...].mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/app-ZO2DYbZO.js
+//#region node_modules/.nitro/vite/services/ssr/assets/app-DX0U5uON.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var Switch = import_react.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Switch$1, {

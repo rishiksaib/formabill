@@ -39,7 +39,7 @@ var DEFAULT_SETTINGS = {
 	}
 };
 //#endregion
-//#region node_modules/.nitro/vite/services/ssr/assets/router-Bmc9EuDx.js
+//#region node_modules/.nitro/vite/services/ssr/assets/router-BozvWNW5.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 /**
@@ -490,23 +490,23 @@ var Route$31 = createRootRoute({
 });
 var $$splitComponentImporter$11 = () => import("./routes-DNV8i2Vl.mjs");
 var Route$30 = createFileRoute("/")({ component: lazyRouteComponent($$splitComponentImporter$11, "component") });
-var $$splitComponentImporter$10 = () => import("./app-pCy6yFnJ.mjs");
+var $$splitComponentImporter$10 = () => import("./app-MItOgzbk.mjs");
 var Route$29 = createFileRoute("/app")({
 	ssr: false,
 	component: lazyRouteComponent($$splitComponentImporter$10, "component")
 });
-var $$splitComponentImporter$9 = () => import("./forgot-password-CPpuaopM.mjs");
+var $$splitComponentImporter$9 = () => import("./forgot-password-B3aYbsS4.mjs");
 var Route$28 = createFileRoute("/forgot-password")({ component: lazyRouteComponent($$splitComponentImporter$9, "component") });
-var $$splitComponentImporter$8 = () => import("./login-BDaDpzWb.mjs");
+var $$splitComponentImporter$8 = () => import("./login-Dqm2eSTH.mjs");
 var Route$27 = createFileRoute("/login")({ component: lazyRouteComponent($$splitComponentImporter$8, "component") });
-var $$splitComponentImporter$7 = () => import("./privacy-CjEKvM6S.mjs");
+var $$splitComponentImporter$7 = () => import("./privacy-Lhp5KY4b.mjs");
 var Route$26 = createFileRoute("/privacy")({ component: lazyRouteComponent($$splitComponentImporter$7, "component") });
-var $$splitComponentImporter$6 = () => import("./reset-password-0UgbO6xv.mjs");
+var $$splitComponentImporter$6 = () => import("./reset-password-CF2KJXM3.mjs");
 var Route$25 = createFileRoute("/reset-password")({
 	validateSearch: (search) => ({ token: typeof search.token === "string" ? search.token : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$6, "component")
 });
-var $$splitComponentImporter$5 = () => import("./terms-uQ9Lk76y.mjs");
+var $$splitComponentImporter$5 = () => import("./terms-Bk3HGtiC.mjs");
 var Route$24 = createFileRoute("/terms")({ component: lazyRouteComponent($$splitComponentImporter$5, "component") });
 var SUPPORT_EMAIL = "support@formabill.app";
 function env$2(key) {
@@ -10014,7 +10014,7 @@ var auth = betterAuth({
 		enabled: true,
 		resetPasswordTokenExpiresIn: 3600,
 		sendResetPassword: async ({ user, url }) => {
-			const { sendPasswordResetEmail } = await import("./mailer.server-yPPKFHzB.mjs");
+			const { sendPasswordResetEmail } = await import("./mailer.server-BLe02W23.mjs");
 			await sendPasswordResetEmail(user.email, url);
 		}
 	},
@@ -10533,17 +10533,6 @@ async function grantProMonths(userId, months) {
 async function setUserSubscriptionPro(userId, plan) {
 	await (await getSql())`update "user" set "isPro" = true, "proPlan" = ${plan}, "proSource" = 'subscription', "canGift" = true, "giftsRemaining" = ${1}, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
 }
-/**
-* Consume one unit of gift quota atomically. Returns false when none remains
-* (caller must roll back any code already minted).
-*/
-async function consumeGiftQuota(userId) {
-	return (await (await getSql())`
-    update "user" set "giftsRemaining" = "giftsRemaining" - 1, "updatedAt" = CURRENT_TIMESTAMP
-    where "id" = ${userId} and "giftsRemaining" > 0
-    returning "id"
-  `).length > 0;
-}
 var CODE_ALPHABET$1 = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 function randomReferralCode() {
 	const bytes = randomBytes(6);
@@ -10647,6 +10636,21 @@ var GIFT_GRANTS = {
 };
 /** Gift codes stay redeemable for 90 days after creation. */
 var GIFT_CODE_TTL_MS = 7776e6;
+/** Recent mints by user id — best-effort, per process. Entries expire. */
+var recentMints = /* @__PURE__ */ new Map();
+function isUniqueViolation(error) {
+	if (!error || typeof error !== "object") return false;
+	if (error.code === "23505") return true;
+	const message = error instanceof Error ? error.message : String(error);
+	return /duplicate key|unique constraint|already exists/i.test(message);
+}
+/** Total codes ever minted by a user (for the lifetime cap). */
+async function lifetimeCreatedCount(userId) {
+	const rows = await (await getSql())`
+    select count(*)::text as count from "gift_codes" where "createdBy" = ${userId}
+  `;
+	return Number(rows[0]?.count ?? 0);
+}
 var GIFT_UPGRADE_MESSAGE = "Gift codes are a Pro feature. Upgrade to Pro to create them.";
 var GiftProRequiredError = class extends Error {
 	status = 402;
@@ -10725,30 +10729,55 @@ async function createGiftCode(userId) {
 	const plan = await getUserPlan(userId);
 	if (!plan.isPro) throw new GiftProRequiredError();
 	if (!(plan.isLifetimePro || canGiftForSource(plan.proSource, plan.canGift))) throw new GiftQuotaExhaustedError("Your Pro plan doesn't include gift codes.");
-	if (plan.giftsRemaining < 1) throw new GiftQuotaExhaustedError("You've used all your gift codes.");
 	const grant = await giftGrantFor(userId);
+	if (plan.isLifetimePro) {
+		if (await lifetimeCreatedCount(userId) >= 3) throw new GiftQuotaExhaustedError("You've used all your gift codes.");
+	} else if (plan.giftsRemaining < 1) throw new GiftQuotaExhaustedError("You've used all your gift codes.");
+	const now = Date.now();
+	if (recentMints.size > 500) {
+		for (const [key, entry] of recentMints) if (now - entry.at > 1e4) recentMints.delete(key);
+	}
+	const dupe = recentMints.get(userId);
+	if (dupe && now - dupe.at < 1e4) return dupe.info;
 	const sql = await getSql();
 	const active = await sql`
     select count(*)::text as count from "gift_codes"
     where "createdBy" = ${userId} and "redeemedAt" is null and "expiresAt" > CURRENT_TIMESTAMP
   `;
 	if (Number(active[0]?.count ?? 0) >= 20) throw new Error(`You already have 20 unused gift codes — wait for some to be used first.`);
+	const months = Math.max(1, Math.round(grant.days / 30));
+	const expiresAt = new Date(Date.now() + GIFT_CODE_TTL_MS).toISOString();
 	for (let attempt = 0; attempt < 5; attempt += 1) {
 		const code = randomCode().replace(/-/g, "");
+		let rows;
 		try {
-			const rows = await sql`
-        insert into "gift_codes" ("id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt")
-        values (${uid()}, ${code}, ${userId}, ${Math.max(1, Math.round(grant.days / 30))}, ${grant.days}, ${grant.plan}, ${new Date(Date.now() + GIFT_CODE_TTL_MS).toISOString()})
-        returning "id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt", "redeemedBy", "redeemedAt", "createdAt"
-      `;
-			if (!await consumeGiftQuota(userId)) {
-				await sql`delete from "gift_codes" where "id" = ${rows[0].id}`;
-				throw new GiftQuotaExhaustedError();
-			}
-			return toInfo(rows[0]);
+			if (plan.isLifetimePro) rows = await sql`
+          insert into "gift_codes" ("id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt")
+          values (${uid()}, ${code}, ${userId}, ${months}, ${grant.days}, ${grant.plan}, ${expiresAt})
+          returning "id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt", "redeemedBy", "redeemedAt", "createdAt"
+        `;
+			else rows = await sql`
+          with dec as (
+            update "user" set "giftsRemaining" = "giftsRemaining" - 1, "updatedAt" = CURRENT_TIMESTAMP
+            where "id" = ${userId} and "giftsRemaining" > 0
+            returning "id"
+          )
+          insert into "gift_codes" ("id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt")
+          select ${uid()}, ${code}, ${userId}, ${months}, ${grant.days}, ${grant.plan}, ${expiresAt}
+          from dec
+          returning "id", "code", "createdBy", "durationMonths", "giftDurationDays", "planType", "expiresAt", "redeemedBy", "redeemedAt", "createdAt"
+        `;
 		} catch (error) {
-			if (error instanceof GiftQuotaExhaustedError) throw error;
+			if (!isUniqueViolation(error)) throw error;
+			continue;
 		}
+		if (rows.length === 0) throw new GiftQuotaExhaustedError("You've used all your gift codes.");
+		const info = toInfo(rows[0]);
+		recentMints.set(userId, {
+			at: Date.now(),
+			info
+		});
+		return info;
 	}
 	throw new Error("Could not mint a gift code — try again.");
 }
@@ -10820,12 +10849,13 @@ var Route$21 = createFileRoute("/api/gift-codes")({ server: { handlers: {
 		try {
 			const userId = await requireRequestUserId();
 			const [codes, plan] = await Promise.all([listGiftCodes(userId), getUserPlan(userId).catch(() => null)]);
+			const remaining = plan?.isLifetimePro && plan ? Math.max(0, 3 - await lifetimeCreatedCount(userId).catch(() => 0)) : plan?.giftsRemaining ?? 0;
 			const grantKey = plan?.isLifetimePro ? "lifetime" : plan?.proSource === "subscription" ? plan.proPlan === "pro_yearly" ? "pro_yearly" : "pro_monthly" : null;
 			const grant = grantKey ? GIFT_GRANTS[grantKey] : null;
 			return Response.json({
 				codes,
 				canGift: plan?.canGift ?? false,
-				giftsRemaining: plan?.giftsRemaining ?? 0,
+				giftsRemaining: remaining,
 				proSource: plan?.proSource ?? null,
 				grantDays: grant?.days ?? null,
 				grantLabel: grant ? plan?.isLifetimePro ? "1 friend · 1 month Pro per code" : grant.quotaLine : null
@@ -10843,10 +10873,11 @@ var Route$21 = createFileRoute("/api/gift-codes")({ server: { handlers: {
 		}
 	},
 	POST: async ({ request }) => {
+		let userId = null;
 		try {
 			const limit = checkRateLimit(`gift-codes:POST:${clientIp(request)}`, 20, 6e4);
 			if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSec);
-			const userId = await requireRequestUserId();
+			userId = await requireRequestUserId();
 			await request.json().catch(() => ({}));
 			const created = await createGiftCode(userId);
 			return Response.json(created);
@@ -10854,6 +10885,10 @@ var Route$21 = createFileRoute("/api/gift-codes")({ server: { handlers: {
 			if (error instanceof UnauthorizedError) return Response.json({ error: "Sign in to manage gift codes." }, { status: 401 });
 			if (error instanceof GiftProRequiredError) return Response.json({ error: error.message }, { status: error.status });
 			if (error instanceof GiftQuotaExhaustedError) return Response.json({ error: error.message }, { status: error.status });
+			console.error("[gift-codes] create failed", {
+				userId,
+				error: error instanceof Error ? error.stack ?? error.message : error
+			});
 			return Response.json({ error: error instanceof Error ? error.message : "Could not create gift code" }, { status: 400 });
 		}
 	}
@@ -11834,16 +11869,16 @@ var Route$19 = createFileRoute("/api/mcp")({ server: { handlers: {
 		});
 	}
 } } });
-var $$splitComponentImporter$4 = () => import("./app-ZO2DYbZO.mjs");
+var $$splitComponentImporter$4 = () => import("./app-DX0U5uON.mjs");
 var Route$18 = createFileRoute("/app/")({
 	validateSearch: (search) => ({ id: typeof search.id === "string" ? search.id : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$4, "component")
 });
-var $$splitComponentImporter$3 = () => import("./clients-l49DMQfn.mjs");
+var $$splitComponentImporter$3 = () => import("./clients-THgmFNOJ.mjs");
 var Route$17 = createFileRoute("/app/clients")({ component: lazyRouteComponent($$splitComponentImporter$3, "component") });
 var $$splitComponentImporter$2 = () => import("./invoices-0lvuLK3n.mjs");
 var Route$16 = createFileRoute("/app/invoices")({ component: lazyRouteComponent($$splitComponentImporter$2, "component") });
-var $$splitComponentImporter$1 = () => import("./settings-huV0Pu5s.mjs");
+var $$splitComponentImporter$1 = () => import("./settings-Bx1zc1zM.mjs");
 var Route$15 = createFileRoute("/app/settings")({
 	validateSearch: (search) => ({ pro: typeof search.pro === "string" ? search.pro : void 0 }),
 	component: lazyRouteComponent($$splitComponentImporter$1, "component")
@@ -11861,7 +11896,7 @@ var createSsrRpc = (functionId) => {
 	});
 };
 var getPublicInvoice = createServerFn({ method: "GET" }).validator((data) => data).handler(createSsrRpc("7cf99f1f443df70951f16026984e7f7a664d02eb63efa6624ccde1f1d6e46144"));
-var $$splitComponentImporter = () => import("./inv._id-CbEUaxCF.mjs");
+var $$splitComponentImporter = () => import("./inv._id-CEEOeivs.mjs");
 var Route$14 = createFileRoute("/inv/$id")({
 	loader: async ({ params }) => {
 		return { invoice: await getPublicInvoice({ data: { id: params.id } }) };

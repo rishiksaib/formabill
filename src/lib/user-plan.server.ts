@@ -323,20 +323,6 @@ export async function setUserSubscriptionPro(userId: string, plan: string): Prom
   await sql`update "user" set "isPro" = true, "proPlan" = ${plan}, "proSource" = 'subscription', "canGift" = true, "giftsRemaining" = ${GIFTS_PER_PRO_PAYMENT}, "updatedAt" = CURRENT_TIMESTAMP where "id" = ${userId}`;
 }
 
-/**
- * Consume one unit of gift quota atomically. Returns false when none remains
- * (caller must roll back any code already minted).
- */
-export async function consumeGiftQuota(userId: string): Promise<boolean> {
-  const sql = await getSql();
-  const rows = await sql<{ id: string }>`
-    update "user" set "giftsRemaining" = "giftsRemaining" - 1, "updatedAt" = CURRENT_TIMESTAMP
-    where "id" = ${userId} and "giftsRemaining" > 0
-    returning "id"
-  `;
-  return rows.length > 0;
-}
-
 /** Look up a user id by email (admin action). Returns null when unknown. */
 export async function findUserIdByEmail(email: string): Promise<string | null> {
   const sql = await getSql();

@@ -4,7 +4,9 @@ import {
   GIFT_GRANTS,
   GiftProRequiredError,
   GiftQuotaExhaustedError,
+  LIFETIME_TOTAL_CAP,
   createGiftCode,
+  lifetimeCreatedCount,
   listGiftCodes,
 } from "@/lib/gifts.server";
 import { getUserPlan } from "@/lib/user-plan.server";
@@ -26,6 +28,11 @@ export const Route = createFileRoute("/api/gift-codes")({
             listGiftCodes(userId),
             getUserPlan(userId).catch(() => null),
           ]);
+          // Lifetime quota is total-ever-minted, not the counter field.
+          const remaining =
+            plan?.isLifetimePro && plan
+              ? Math.max(0, LIFETIME_TOTAL_CAP - (await lifetimeCreatedCount(userId).catch(() => 0)))
+              : (plan?.giftsRemaining ?? 0);
           const grantKey =
             plan?.isLifetimePro
               ? "lifetime"
@@ -38,7 +45,7 @@ export const Route = createFileRoute("/api/gift-codes")({
           return Response.json({
             codes,
             canGift: plan?.canGift ?? false,
-            giftsRemaining: plan?.giftsRemaining ?? 0,
+            giftsRemaining: remaining,
             proSource: plan?.proSource ?? null,
             grantDays: grant?.days ?? null,
             grantLabel: grant
@@ -64,10 +71,11 @@ export const Route = createFileRoute("/api/gift-codes")({
         }
       },
       POST: async ({ request }) => {
+        let userId: string | null = null;
         try {
           const limit = checkRateLimit(`gift-codes:POST:${clientIp(request)}`, 20, 60_000);
           if (!limit.allowed) return rateLimitedResponse(limit.retryAfterSec);
-          const userId = await requireRequestUserId();
+          userId = await requireRequestUserId();
           await request.json().catch(() => ({}));
           const created = await createGiftCode(userId);
           return Response.json(created);
@@ -81,6 +89,12 @@ export const Route = createFileRoute("/api/gift-codes")({
           if (error instanceof GiftQuotaExhaustedError) {
             return Response.json({ error: error.message }, { status: error.status });
           }
+          // Unexpected failure (DB outage, schema drift…): log the real
+          // exception server-side. The client keeps a safe generic message.
+          console.error("[gift-codes] create failed", {
+            userId,
+            error: error instanceof Error ? error.stack ?? error.message : error,
+          });
           return Response.json(
             { error: error instanceof Error ? error.message : "Could not create gift code" },
             { status: 400 },

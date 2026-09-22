@@ -5,11 +5,11 @@ import { v as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { n as require_jsx_runtime } from "../_libs/radix-ui__react-context+react.mjs";
 import { C as Download, M as ArrowUpRight, T as Copy, g as Link2, h as LoaderCircle, v as FileQuestion } from "../_libs/lucide-react.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
-import { n as Route$14 } from "./router-Bmc9EuDx.mjs";
+import { n as Route$14 } from "./router-BozvWNW5.mjs";
 import { t as Button } from "./button-CYO0UllO.mjs";
 import { t as InvoiceDocument } from "./document-lgfe_FuB.mjs";
 import { t as Logo } from "./logo-ut0NUiCj.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/inv._id-CbEUaxCF.js
+//#region node_modules/.nitro/vite/services/ssr/assets/inv._id-CEEOeivs.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function PublicInvoicePage() {
